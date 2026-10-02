@@ -15,6 +15,10 @@
   <img alt="License: GPL v3" src="https://img.shields.io/badge/license-GPLv3-blue">
 </p>
 
+<p align="center">
+  <a href="https://github.com/Nurikexe/SimpleNotch/releases/latest/download/SimpleNotch.dmg"><img alt="Download for macOS" src="https://img.shields.io/badge/Download-for%20macOS-black?style=for-the-badge&logo=apple"></a>
+</p>
+
 ---
 
 ## Why
@@ -102,7 +106,11 @@ SimpleNotch runs outside the App Sandbox, because moving other apps' windows and
 
 ## Install
 
-Signed and notarized builds will be published on the [Releases](https://github.com/Nurikexe/SimpleNotch/releases) page. They update themselves through Sparkle. Until then, build from source.
+1. [Download the latest **SimpleNotch.dmg**](https://github.com/Nurikexe/SimpleNotch/releases/latest/download/SimpleNotch.dmg).
+2. Open it and drag **SimpleNotch** into **Applications**.
+3. Launch it, then hover over the notch.
+
+Releases are signed with Developer ID and notarized by Apple, so they open without warnings. SimpleNotch updates itself through Sparkle. Older versions are on the [Releases](https://github.com/Nurikexe/SimpleNotch/releases) page.
 
 ## Building from source
 
@@ -120,10 +128,10 @@ Select the `SimpleNotch` scheme and run it. You need Xcode 26 or newer. Swift pa
 1. Archives the app.
 2. Signs it with Developer ID.
 3. Notarizes it.
-4. Builds `SimpleNotch-<version>.dmg`.
+4. Builds a drag-to-Applications `SimpleNotch.dmg`.
 5. Writes the Sparkle `appcast.xml`.
 
-Attach both files to a GitHub release tagged `v<version>`. The app's update feed always points at the latest release's `appcast.xml`.
+`scripts/release.sh --publish` also creates the GitHub release `v<version>` with both files attached. The download link and the app's update feed always point at the latest release.
 
 One-time setup:
 

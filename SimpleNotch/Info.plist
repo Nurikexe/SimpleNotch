@@ -13,6 +13,8 @@
 	<true/>
 	<key>SUFeedURL</key>
 	<string>https://github.com/Nurikexe/SimpleNotch/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>lnYyrEck4DwFKtOsMj3UBiwu5pNQfimNVR3ibNUt5mA=</string>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict/>
