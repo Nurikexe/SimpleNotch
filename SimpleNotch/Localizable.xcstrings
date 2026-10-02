@@ -634,16 +634,6 @@
         }
       }
     },
-    "SimpleNotch" : {
-      "localizations" : {
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "SimpleNotch"
-          }
-        }
-      }
-    },
     "Bottom-left quarter" : {
       "localizations" : {
         "ru" : {
@@ -2153,16 +2143,6 @@
         }
       }
     },
-    "SimpleNotch is free software under the GNU GPL v3. Based on boring.notch by TheBoredTeam." : {
-      "localizations" : {
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SimpleNotch — свободное ПО под лицензией GNU GPL v3. Основано на boring.notch от TheBoredTeam."
-          }
-        }
-      }
-    },
     "Mark as complete" : {
       "localizations" : {
         "ru" : {
@@ -2439,6 +2419,16 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "No custom visualizer"
+          }
+        }
+      }
+    },
+    "No emoji" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Без эмодзи"
           }
         }
       }
@@ -3352,6 +3342,26 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Show sneak peek on playback changes"
+          }
+        }
+      }
+    },
+    "SimpleNotch" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "SimpleNotch"
+          }
+        }
+      }
+    },
+    "SimpleNotch is free software under the GNU GPL v3. Based on boring.notch by TheBoredTeam." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SimpleNotch — свободное ПО под лицензией GNU GPL v3. Основано на boring.notch от TheBoredTeam."
           }
         }
       }

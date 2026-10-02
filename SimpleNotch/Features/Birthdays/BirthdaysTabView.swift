@@ -296,10 +296,12 @@ private struct BirthdayFormCard: View {
     @State private var hasYear: Bool
     @State private var yearValue: Int
     @State private var emojiText: String
+    @State private var pickingEmoji = false
     @State private var submitted = false
     @FocusState private var focus: Field?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private enum Field { case name, emoji, year }
+    private enum Field { case name, year }
 
     private static let currentYear = Calendar.current.component(.year, from: Date())
 
@@ -319,22 +321,48 @@ private struct BirthdayFormCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                TextField("🙂", text: $emojiText)
-                    .focused($focus, equals: .emoji)
-                    .multilineTextAlignment(.center)
-                    .frame(width: 34)
-                    .fieldStyle()
-                    .onChange(of: emojiText) { _, newValue in
-                        // Keep a single character (one grapheme, so flags and skin tones survive).
-                        if newValue.count > 1 { emojiText = String(newValue.suffix(1)) }
-                    }
-                    .help("Emoji (optional)")
+                EmojiButton(emoji: emojiText, active: pickingEmoji) {
+                    withMotion(Motion.snappy) { pickingEmoji.toggle() }
+                }
                 TextField("Name", text: $draft.name)
                     .focused($focus, equals: .name)
                     .fieldStyle()
                     .onSubmit(submit)
             }
 
+            if pickingEmoji {
+                EmojiGrid(selection: emojiText) { picked in
+                    withMotion(Motion.snappy) {
+                        emojiText = picked
+                        pickingEmoji = false
+                    }
+                }
+                .transition(swapTransition)
+            } else {
+                dateAndActions
+                    .transition(swapTransition)
+            }
+        }
+        .padding(10)
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(white: 0.11))
+                .shadow(color: .black.opacity(0.5), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .onAppear {
+            Task { @MainActor in focus = .name }
+        }
+    }
+
+    private var swapTransition: AnyTransition { reduceMotion ? .opacity : .softPop }
+
+    private var dateAndActions: some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 CycleStepper(
                     value: $draft.day,
@@ -384,19 +412,6 @@ private struct BirthdayFormCard: View {
                     .opacity(canSave ? 1 : 0.45)
                     .animation(Motion.respecting(Motion.snappy), value: canSave)
             }
-        }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(white: 0.11))
-                .shadow(color: .black.opacity(0.5), radius: 12, y: 4)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-        )
-        .onAppear {
-            Task { @MainActor in focus = .name }
         }
     }
 
@@ -457,6 +472,106 @@ private struct PressScaleStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.9 : 1)
             .animation(Motion.respecting(Motion.snappy), value: configuration.isPressed)
+    }
+}
+
+/// The emoji slot of the form: shows the chosen emoji (or a placeholder) and
+/// toggles the in-card EmojiGrid. A popover would open outside the notch.
+private struct EmojiButton: View {
+    let emoji: String
+    let active: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                if emoji.isEmpty {
+                    Image(systemName: "face.smiling")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.gray)
+                        .transition(.softPop)
+                } else {
+                    Text(emoji)
+                        .font(.system(size: 15))
+                        .id(emoji)
+                        .transition(.softPop)
+                }
+            }
+            .frame(width: 34, height: 26)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.white.opacity(active ? 0.16 : 0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(BirthdayStyle.warm.opacity(active ? 0.7 : 0), lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .help("Emoji (optional)")
+    }
+}
+
+/// Two rows of emoji that fit people and birthdays, plus "none".
+private struct EmojiGrid: View {
+    let selection: String
+    let onPick: (String) -> Void
+
+    private static let emojis = [
+        "🎂", "🎁", "🎉", "🥳", "🎈", "❤️", "💖", "💐", "🌸", "🌻", "⭐️", "👑", "💎", "🧸", "🐶", "🐱", "🦊",
+        "👩", "👨", "👵", "👴", "👧", "👦", "👶", "🧑‍🎓", "👩‍💻", "🤗", "😎", "🥰", "⚽️", "🎮", "🎵",
+    ]
+    private static let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 17)
+
+    @State private var hovered: String?
+    @Namespace private var highlight
+
+    var body: some View {
+        LazyVGrid(columns: Self.columns, spacing: 4) {
+            ForEach(Self.emojis, id: \.self) { emoji in
+                cell(emoji) {
+                    Text(emoji).font(.system(size: 16))
+                }
+            }
+            cell("") {
+                Image(systemName: "nosign")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.gray)
+            }
+            .help("No emoji")
+        }
+        .frame(height: 58)
+        .onHover { if !$0 { hovered = nil } }
+    }
+
+    private func cell(_ emoji: String, @ViewBuilder label: () -> some View) -> some View {
+        let isSelected = emoji == selection
+        return Button {
+            // Picking the current emoji again clears it.
+            onPick(isSelected ? "" : emoji)
+        } label: {
+            label()
+                .frame(maxWidth: .infinity)
+                .frame(height: 27)
+                .background {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(BirthdayStyle.warm.opacity(0.35))
+                    } else if hovered == emoji {
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(Color.white.opacity(0.12))
+                            .matchedGeometryEffect(id: "hover", in: highlight)
+                    }
+                }
+                .scaleEffect(hovered == emoji ? 1.15 : 1)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+        .onHover { inside in
+            guard inside else { return }
+            withMotion(Motion.interactive) { hovered = emoji }
+        }
     }
 }
 
