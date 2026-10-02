@@ -218,161 +218,30 @@ final class ShelfItemViewModel: ObservableObject {
 
         let selectedItems = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
         let selectedFileURLs = selectedItems.compactMap { $0.fileURL }
-        let selectedLinkURLs: [URL] = selectedItems.compactMap { itm in
-            if case .link(let url) = itm.kind { return url }
-            return nil
-        }
-        let selectedFolderURLs = selectedFileURLs.filter { isDirectory($0) }
-        // URLs valid for Open/Open With (exclude folders)
+        // URLs valid for Open (exclude folders)
         let selectedOpenableURLs = selectedItems.compactMap { itm -> URL? in
             if let u = itm.fileURL { return isDirectory(u) ? nil : u }
             if case .link(let url) = itm.kind { return url }
             return nil
         }
 
-        if !selectedOpenableURLs.isEmpty {
-            addMenuItem(title: "Open")
-        }
-
-        if !selectedOpenableURLs.isEmpty {
-            let openWith = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
-            let submenu = NSMenu()
-
-            // Choose a representative URL to compute apps (prefer current item if not a folder)
-            let baseURLForApps: URL? = {
-                if let u = item.fileURL, !isDirectory(u) { return u }
-                if case .link(let u) = item.kind { return u }
-                return selectedOpenableURLs.first
-            }()
-
-            let openWithApps: [URL] = {
-                guard let u = baseURLForApps else { return [] }
-                if u.isFileURL {
-                    var results = NSWorkspace.shared.urlsForApplications(toOpen: u)
-                    if results.isEmpty, let uti = try? u.resourceValues(forKeys: [.contentTypeKey]).contentType {
-                        results = NSWorkspace.shared.urlsForApplications(toOpen: uti)
-                    }
-                    return Array(Set(results))
-                } else {
-                    return Array(Set(NSWorkspace.shared.urlsForApplications(toOpen: u)))
-                }
-            }()
-            let defaultApp = defaultAppURL()
-
-            if openWithApps.isEmpty {
-                let noApps = NSMenuItem(title: "No Compatible Apps Found", action: nil, keyEquivalent: "")
-                noApps.isEnabled = false
-                submenu.addItem(noApps)
-            } else {
-                if let defaultApp = defaultApp {
-                    let appName = appDisplayName(for: defaultApp)
-                    let def = NSMenuItem(title: appName, action: nil, keyEquivalent: "")
-                    def.representedObject = defaultApp
-                    def.image = nsAppIcon(for: defaultApp, size: 16)
-
-                    let title = NSMutableAttributedString(string: appName, attributes: [
-                        .font: NSFont.menuFont(ofSize: 0),
-                        .foregroundColor: NSColor.labelColor
-                    ])
-                    let defaultPart = NSAttributedString(string: " (default)", attributes: [
-                        .font: NSFont.menuFont(ofSize: 0),
-                        .foregroundColor: NSColor.secondaryLabelColor
-                    ])
-                    title.append(defaultPart)
-                    def.attributedTitle = title
-                    submenu.addItem(def)
-
-                    if openWithApps.count > 1 || !openWithApps.contains(defaultApp) {
-                        submenu.addItem(NSMenuItem.separator())
-                    }
-                }
-                for appURL in openWithApps where appURL != defaultApp {
-                    let mi = NSMenuItem(title: appDisplayName(for: appURL), action: nil, keyEquivalent: "")
-                    mi.representedObject = appURL
-                    mi.image = nsAppIcon(for: appURL, size: 16)
-                    submenu.addItem(mi)
-                }
-            }
-
-            submenu.addItem(NSMenuItem.separator())
-            let other = NSMenuItem(title: "Other…", action: nil, keyEquivalent: "")
-            other.representedObject = "__OTHER__"
-            submenu.addItem(other)
-
-            openWith.submenu = submenu
-            menu.addItem(openWith)
-        }
-
+        // Kept short on purpose: Open, Show in Finder, Copy, Remove, Share.
+        if !selectedOpenableURLs.isEmpty { addMenuItem(title: "Open") }
         if !selectedFileURLs.isEmpty { addMenuItem(title: "Show in Finder") }
-        // Allow Quick Look for files and link URLs
-        if !selectedFileURLs.isEmpty || !selectedLinkURLs.isEmpty {
-            // Add Quick Look menu item
-            let quickLookItem = NSMenuItem(title: "Quick Look", action: nil, keyEquivalent: "")
-            menu.addItem(quickLookItem)
-            
-            // Add Slideshow as alternate menu item (shown when Option key is held)
-            let slideshowItem = NSMenuItem(title: "Quick Look", action: nil, keyEquivalent: "")
-            slideshowItem.isAlternate = true
-            slideshowItem.keyEquivalentModifierMask = [.option]
-            menu.addItem(slideshowItem)
-        }
 
-        // Copy and Remove sit high, so reaching them never means a long trip
-        // down past the notch.
         menu.addItem(NSMenuItem.separator())
-        // Always show "Copy" for all item types
         addMenuItem(title: "Copy")
-        // If there are file URLs, add "Copy Path" as an alternate menu item (Option key)
+        // ⌥ turns Copy into Copy Path for files.
         if !selectedFileURLs.isEmpty {
             let copyPathItem = NSMenuItem(title: "Copy Path", action: nil, keyEquivalent: "")
             copyPathItem.isAlternate = true
             copyPathItem.keyEquivalentModifierMask = [.option]
             menu.addItem(copyPathItem)
         }
-
         addMenuItem(title: "Remove")
 
         menu.addItem(NSMenuItem.separator())
         addMenuItem(title: "Share…")
-        
-        // Add image processing options for image files grouped under "Image Actions"
-        let imageURLs = selectedFileURLs.filter { ImageProcessingService.shared.isImageFile($0) }
-        if !imageURLs.isEmpty {
-            let imageActions = NSMenuItem(title: "Image Actions", action: nil, keyEquivalent: "")
-            let imageSubmenu = NSMenu()
-
-            // Remove Background - only for single images
-            if imageURLs.count == 1 {
-                let removeBg = NSMenuItem(title: "Remove Background", action: nil, keyEquivalent: "")
-                imageSubmenu.addItem(removeBg)
-            }
-
-            // Convert Image - only for single images
-            if imageURLs.count == 1 {
-                let convertItem = NSMenuItem(title: "Convert Image…", action: nil, keyEquivalent: "")
-                imageSubmenu.addItem(convertItem)
-            }
-
-            // Create PDF - for one or more images
-            let createPDF = NSMenuItem(title: "Create PDF", action: nil, keyEquivalent: "")
-            imageSubmenu.addItem(createPDF)
-
-            imageActions.submenu = imageSubmenu
-            menu.addItem(imageActions)
-        }
-
-        if !selectedFileURLs.isEmpty || (selectedItems.count == 1 && { if case .file = item.kind { return true }; return false }()) {
-            menu.addItem(NSMenuItem.separator())
-        }
-
-        // Add compression option for files/folders (single or multiple)
-        if !selectedFileURLs.isEmpty {
-            let compressItem = NSMenuItem(title: "Compress", action: nil, keyEquivalent: "")
-            menu.addItem(compressItem)
-        }
-
-        if selectedItems.count == 1, case .file(_) = item.kind { addMenuItem(title: "Rename") }
-
 
         let actionTarget = MenuActionTarget(item: item, view: view, viewModel: self)
 
