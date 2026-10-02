@@ -109,6 +109,11 @@ class BoringNotchSkyLightWindow: NSPanel {
     
     private var observers: Set<AnyCancellable> = []
     
-    override var canBecomeKey: Bool { false }
+    /// The notch only takes keyboard focus while a view needs typing (Translate,
+    /// the Birthday form, Clipboard search). Otherwise hovering and clicking it
+    /// must never steal focus from the app the user is working in.
+    var acceptsKeyboard = false
+
+    override var canBecomeKey: Bool { acceptsKeyboard }
     override var canBecomeMain: Bool { false }
 }

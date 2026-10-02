@@ -8,23 +8,21 @@
 import SwiftUI
 
 struct TabButton: View {
-    let label: String
+    let label: LocalizedStringKey
     let icon: String
     let selected: Bool
     let onClick: () -> Void
-    
+
     var body: some View {
         Button(action: onClick) {
             Image(systemName: icon)
-                .padding(.horizontal, 15)
+                .font(.system(size: 12, weight: .semibold))
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: 18)
+                .padding(.horizontal, 8)
                 .contentShape(Capsule())
         }
         .buttonStyle(PlainButtonStyle())
-    }
-}
-
-#Preview {
-    TabButton(label: "Home", icon: "tray.fill", selected: true) {
-        print("Tapped")
+        .help(Text(label))
     }
 }

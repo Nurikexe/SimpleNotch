@@ -33,6 +33,14 @@ class BoringViewModel: NSObject, ObservableObject {
 
     @Published var screenUUID: String?
 
+    /// The panel this view model is shown in; set by the AppDelegate.
+    weak var hostWindow: BoringNotchSkyLightWindow?
+    /// True while the notch holds keyboard focus.
+    @Published private(set) var keyboardSessionActive = false
+    /// True when the notch was opened on purpose (shortcut, announcement click),
+    /// so moving the pointer away must not close it. Cleared on close.
+    @Published var pinnedOpen = false
+
     @Published var notchSize: CGSize = getClosedNotchSize()
     @Published var closedNotchSize: CGSize = getClosedNotchSize()
     
@@ -145,24 +153,41 @@ class BoringViewModel: NSObject, ObservableObject {
         MusicManager.shared.forceUpdate()
     }
 
+    /// Lets the notch receive key events without activating SimpleNotch, so the
+    /// app the user was in stays frontmost (and receives a later paste).
+    func beginKeyboardSession() {
+        guard let window = hostWindow else { return }
+        window.acceptsKeyboard = true
+        window.makeKey()
+        keyboardSessionActive = true
+    }
+
+    func endKeyboardSession() {
+        guard keyboardSessionActive || hostWindow?.isKeyWindow == true else { return }
+        keyboardSessionActive = false
+        guard let window = hostWindow else { return }
+        let wasKey = window.isKeyWindow
+        window.acceptsKeyboard = false
+        if wasKey {
+            window.resignKey()
+            NSWorkspace.shared.frontmostApplication?.activate()
+        }
+    }
+
     func close() {
         // Do not close while a share picker or sharing service is active
         if SharingStateManager.shared.preventNotchClose {
             return
         }
+        pinnedOpen = false
+        endKeyboardSession()
         self.notchSize = getClosedNotchSize(screenUUID: self.screenUUID)
         self.closedNotchSize = self.notchSize
         self.notchState = .closed
         self.coordinator.sneakPeek.show = false
         self.edgeAutoOpenActive = false
 
-        // Set the current view to shelf if it contains files and the user enables openShelfByDefault
-        // Otherwise, if the user has not enabled openLastShelfByDefault, set the view to home
-    if !ShelfStateViewModel.shared.isEmpty && Defaults[.openShelfByDefault] {
-            coordinator.currentView = .shelf
-        } else if !coordinator.openLastTabByDefault {
-            coordinator.currentView = .home
-        }
+        coordinator.currentView = coordinator.restingTab()
     }
 
     func closeHello() {

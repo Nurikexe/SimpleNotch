@@ -19,6 +19,9 @@ struct ContentView: View {
 
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @ObservedObject var musicManager = MusicManager.shared
+    @ObservedObject var focus = FocusManager.shared
+    @ObservedObject var downloads = DownloadMonitor.shared
+    @ObservedObject var snap = WindowSnapManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
@@ -32,7 +35,26 @@ struct ContentView: View {
     @Default(.showNotHumanFace) var showNotHumanFace
 
     // Shared interactive spring for movement/resizing to avoid conflicting animations
-    private let animationSpring = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
+    private let animationSpring = Motion.interactive
+
+    /// What the Wings show on the closed notch, in priority order: a running
+    /// Focus session or Timer wins; downloads next; music; then Focus during a
+    /// break when nothing is playing.
+    private enum ClosedActivity { case focus, download, music, face, none }
+
+    private var musicIsLive: Bool {
+        (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled
+    }
+
+    private var closedActivity: ClosedActivity {
+        guard vm.notchState == .closed, !vm.hideOnClosed else { return .none }
+        if focus.wingsPriority == .high { return .focus }
+        if downloads.isActive { return .download }
+        if musicIsLive && (!coordinator.expandingView.show || coordinator.expandingView.type == .music) { return .music }
+        if focus.wingsPriority == .low { return .focus }
+        if !coordinator.expandingView.show && Defaults[.showNotHumanFace] { return .face }
+        return .none
+    }
 
     private let extendedHoverPadding: CGFloat = 30
     private let zeroHeightHoverPadding: CGFloat = 10
@@ -55,16 +77,15 @@ struct ContentView: View {
     private var computedChinWidth: CGFloat {
         var chinWidth: CGFloat = vm.closedNotchSize.width
 
-        if (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
-            && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle)
-            && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
-        {
+        switch closedActivity {
+        case .focus:
+            chinWidth += NotchWings<EmptyView, EmptyView>.extraWidth(wingWidth: FocusWingsView.wingWidth)
+        case .download:
+            chinWidth += NotchWings<EmptyView, EmptyView>.extraWidth(wingWidth: DownloadWingsView.wingWidth)
+        case .music, .face:
             chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
-        } else if !coordinator.expandingView.show && vm.notchState == .closed
-            && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace]
-            && !vm.hideOnClosed
-        {
-            chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
+        case .none:
+            break
         }
 
         return chinWidth
@@ -91,7 +112,21 @@ struct ContentView: View {
                     )
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
                     .background(.black)
+                    .overlay(alignment: .bottom) {
+                        if vm.notchState == .closed && focus.showsProgressLine && !vm.hideOnClosed {
+                            FocusProgressLine()
+                                .transition(.opacity)
+                        }
+                    }
                     .clipShape(currentNotchShape)
+                    .background {
+                        // A faint glow while any window is being dragged: "you can drop here".
+                        currentNotchShape
+                            .fill(.white.opacity(snap.isWindowDragActive && vm.notchState == .closed ? 0.22 : 0))
+                            .blur(radius: 10)
+                            .scaleEffect(1.08, anchor: .top)
+                            .animation(Motion.respecting(Motion.smooth), value: snap.isWindowDragActive)
+                    }
                     .overlay(alignment: .top) {
                         Rectangle()
                             .fill(.black)
@@ -122,7 +157,10 @@ struct ContentView: View {
                         handleHover(hovering)
                     }
                     .onTapGesture {
-                        doOpen()
+                        if let announcement = coordinator.announcement, vm.notchState == .closed {
+                            coordinator.dismissAnnouncement(id: announcement.id)
+                        }
+                        openFromPointer()
                     }
                     .conditionalModifier(Defaults[.enableGestures]) { view in
                         view
@@ -187,6 +225,9 @@ struct ContentView: View {
         )
         .animation(.smooth, value: gestureProgress)
         .background(dragDetector)
+        .onExitCommand {
+            if vm.notchState == .open { vm.close() }
+        }
         .preferredColorScheme(.dark)
         .environmentObject(vm)
         .onChange(of: vm.anyDropZoneTargeting) { _, isTargeted in
@@ -232,10 +273,16 @@ struct ContentView: View {
                     .padding(.top, 40)
                     Spacer()
                 } else {
-                      if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
+                      if closedActivity == .focus {
+                          FocusWingsView()
+                              .transition(.notchContent)
+                      } else if closedActivity == .download {
+                          DownloadWingsView()
+                              .transition(.notchContent)
+                      } else if closedActivity == .music {
                           MusicLiveActivity()
                               .frame(alignment: .center)
-                      } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
+                      } else if closedActivity == .face {
                           BoringFaceAnimation()
                        } else if vm.notchState == .open {
                            BoringHeader()
@@ -259,26 +306,51 @@ struct ContentView: View {
                               }
                           }
                       }
+
+                      if vm.notchState == .closed, !vm.hideOnClosed, let announcement = coordinator.announcement {
+                          AnnouncementView(announcement: announcement)
+                              .id(announcement.id)
+                              .transition(.notchContent)
+                      }
                   }
               }
-              .conditionalModifier((coordinator.sneakPeek.show && (coordinator.sneakPeek.type == .music) && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard) || (coordinator.sneakPeek.show && (coordinator.sneakPeek.type != .music) && (vm.notchState == .closed))) { view in
+              .conditionalModifier((coordinator.announcement != nil && vm.notchState == .closed && !vm.hideOnClosed) || (coordinator.sneakPeek.show && (coordinator.sneakPeek.type == .music) && vm.notchState == .closed && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard) || (coordinator.sneakPeek.show && (coordinator.sneakPeek.type != .music) && (vm.notchState == .closed))) { view in
                   view
                       .fixedSize()
               }
               .zIndex(2)
             if vm.notchState == .open {
                 VStack {
-                    switch coordinator.currentView {
-                    case .home:
-                        NotchHomeView(albumArtNamespace: albumArtNamespace)
-                    case .shelf:
-                        ShelfView()
+                    if let gridScreen = snap.gridScreenID, gridScreen == vm.screenUUID {
+                        SnapGridView()
+                            .transition(.notchContent)
+                    } else {
+                        Group {
+                            switch coordinator.currentView {
+                            case .home:
+                                NotchHomeView(albumArtNamespace: albumArtNamespace)
+                            case .shelf:
+                                ShelfView()
+                            case .clipboard:
+                                ClipboardTabView()
+                            case .focus:
+                                FocusTabView()
+                            case .translate:
+                                TranslateTabView()
+                            case .birthdays:
+                                BirthdaysTabView()
+                            }
+                        }
+                        .id(coordinator.currentView)
+                        .transition(.notchContent)
                     }
                 }
+                .animation(Motion.respecting(Motion.smooth), value: coordinator.currentView)
+                .animation(Motion.respecting(Motion.smooth), value: snap.gridScreenID)
                 .transition(
                     .scale(scale: 0.8, anchor: .top)
                     .combined(with: .opacity)
-                    .animation(.smooth(duration: 0.35))
+                    .animation(Motion.smooth)
                 )
                 .zIndex(1)
                 .allowsHitTesting(vm.notchState == .open)
@@ -432,6 +504,14 @@ struct ContentView: View {
         }
     }
 
+    /// Hover or click opened the notch: route to the most likely Tab first.
+    private func openFromPointer() {
+        if vm.notchState == .closed {
+            coordinator.routeForHoverOpen()
+        }
+        doOpen()
+    }
+
     // MARK: - Hover Management
 
     private func handleHover(_ hovering: Bool) {
@@ -456,8 +536,8 @@ struct ContentView: View {
                     guard self.vm.notchState == .closed,
                           self.isHovering,
                           !self.coordinator.sneakPeek.show else { return }
-                    
-                    self.doOpen()
+
+                    self.openFromPointer()
                 }
             }
         } else {
@@ -470,7 +550,7 @@ struct ContentView: View {
                         self.isHovering = false
                     }
                     
-                    if self.vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
+                    if self.vm.notchState == .open && !self.vm.pinnedOpen && !SharingStateManager.shared.preventNotchClose {
                         self.vm.close()
                     }
                 }

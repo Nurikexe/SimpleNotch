@@ -83,6 +83,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             screenUnlockedObserver = nil
         }
         MusicManager.shared.destroy()
+        FeatureLifecycle.stopAll()
         cleanupDragDetectors()
         cleanupWindows()
         AccessibilityPermission.shared.stopMonitoringAccessibilityAuthorization()
@@ -248,6 +249,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             rootView: ContentView()
                 .environmentObject(viewModel)
         )
+        viewModel.hostWindow = window
 
         window.orderFrontRegardless()
         NotchSpaceManager.shared.notchSpace.windows.insert(window)
@@ -280,6 +282,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+
+        NotchRouter.shared.viewModelForScreen = { [weak self] screen in
+            guard let self else { return nil }
+            if Defaults[.showOnAllDisplays] {
+                return screen.displayUUID.flatMap { self.viewModels[$0] }
+            }
+            return self.vm
+        }
+        FeatureLifecycle.startAll()
 
         NotificationCenter.default.addObserver(
             self,

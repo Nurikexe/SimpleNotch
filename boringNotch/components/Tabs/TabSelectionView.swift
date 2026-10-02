@@ -5,45 +5,43 @@
 //  Created by Hugo Persson on 2024-08-25.
 //
 
+import Defaults
 import SwiftUI
-
-struct TabModel: Identifiable {
-    let id = UUID()
-    let label: String
-    let icon: String
-    let view: NotchViews
-}
-
-let tabs = [
-    TabModel(label: "Home", icon: "house.fill", view: .home),
-    TabModel(label: "Shelf", icon: "tray.fill", view: .shelf)
-]
 
 struct TabSelectionView: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @Namespace var animation
+    @Default(.tabHomeEnabled) private var homeOn
+    @Default(.boringShelf) private var shelfOn
+    @Default(.tabClipboardEnabled) private var clipboardOn
+    @Default(.tabFocusEnabled) private var focusOn
+    @Default(.tabTranslateEnabled) private var translateOn
+    @Default(.tabBirthdaysEnabled) private var birthdaysOn
+
+    private var tabs: [NotchViews] {
+        // Reading the @Default properties keeps this view live when a Tab is toggled.
+        _ = (homeOn, shelfOn, clipboardOn, focusOn, translateOn, birthdaysOn)
+        return NotchViews.enabledTabs
+    }
+
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(tabs) { tab in
-                    TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view) {
-                        withAnimation(.smooth) {
-                            coordinator.currentView = tab.view
-                        }
+            ForEach(tabs, id: \.self) { tab in
+                let selected = coordinator.currentView == tab
+                TabButton(label: tab.label, icon: tab.icon, selected: selected) {
+                    withMotion(Motion.snappy) {
+                        coordinator.select(tab)
                     }
-                    .frame(height: 26)
-                    .foregroundStyle(tab.view == coordinator.currentView ? .white : .gray)
-                    .background {
-                        if tab.view == coordinator.currentView {
-                            Capsule()
-                                .fill(coordinator.currentView == tab.view ? Color(nsColor: .secondarySystemFill) : Color.clear)
-                                .matchedGeometryEffect(id: "capsule", in: animation)
-                        } else {
-                            Capsule()
-                                .fill(coordinator.currentView == tab.view ? Color(nsColor: .secondarySystemFill) : Color.clear)
-                                .matchedGeometryEffect(id: "capsule", in: animation)
-                                .hidden()
-                        }
+                }
+                .frame(height: 26)
+                .foregroundStyle(selected ? .white : .gray)
+                .background {
+                    if selected {
+                        Capsule()
+                            .fill(Color(nsColor: .secondarySystemFill))
+                            .matchedGeometryEffect(id: "capsule", in: animation)
                     }
+                }
             }
         }
         .clipShape(Capsule())

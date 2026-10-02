@@ -47,24 +47,7 @@ class BoringViewCoordinator: ObservableObject {
     @AppStorage("showWhatsNew") var showWhatsNew: Bool = true
     @AppStorage("musicLiveActivityEnabled") var musicLiveActivityEnabled: Bool = true
 
-    @AppStorage("alwaysShowTabs") var alwaysShowTabs: Bool = true {
-        didSet {
-            if !alwaysShowTabs {
-                openLastTabByDefault = false
-                if ShelfStateViewModel.shared.isEmpty || !Defaults[.openShelfByDefault] {
-                    currentView = .home
-                }
-            }
-        }
-    }
-
-    @AppStorage("openLastTabByDefault") var openLastTabByDefault: Bool = false {
-        didSet {
-            if openLastTabByDefault {
-                alwaysShowTabs = true
-            }
-        }
-    }
+    @AppStorage("alwaysShowTabs") var alwaysShowTabs: Bool = true
     
     
     // Legacy storage for migration
@@ -193,5 +176,59 @@ class BoringViewCoordinator: ObservableObject {
     
     func showEmpty() {
         currentView = .home
+    }
+
+    // MARK: - Tab routing
+
+    /// The user picked a Tab; remember it as the resting Tab.
+    func select(_ tab: NotchViews) {
+        currentView = tab
+        Defaults[.lastSelectedTab] = tab
+    }
+
+    /// The Tab shown on an ordinary open: the last one the user chose, if it is still on.
+    func restingTab() -> NotchViews {
+        let last = Defaults[.lastSelectedTab]
+        if last.isEnabled { return last }
+        return NotchViews.enabledTabs.first ?? .home
+    }
+
+    /// Hover or click opened the notch: pick the Tab the user is most likely after.
+    func routeForHoverOpen() {
+        if let tab = announcement?.opensTab, tab.isEnabled {
+            currentView = tab
+        } else if FocusManager.shared.isActive, NotchViews.focus.isEnabled {
+            currentView = .focus
+        } else {
+            currentView = restingTab()
+        }
+    }
+
+    // MARK: - Announcements
+
+    /// A short-lived sneak peek on the closed notch (focus finished, birthday,
+    /// download done). Music keeps its own sneak peek above.
+    @Published private(set) var announcement: NotchAnnouncement?
+    private var announcementTask: Task<Void, Never>?
+
+    func announce(_ announcement: NotchAnnouncement) {
+        announcementTask?.cancel()
+        withMotion(Motion.bouncy) {
+            self.announcement = announcement
+        }
+        guard let duration = announcement.duration else { return }
+        announcementTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(duration))
+            guard !Task.isCancelled else { return }
+            self?.dismissAnnouncement(id: announcement.id)
+        }
+    }
+
+    func dismissAnnouncement(id: UUID? = nil) {
+        guard let current = announcement, id == nil || current.id == id else { return }
+        announcementTask?.cancel()
+        withMotion(Motion.smooth) {
+            announcement = nil
+        }
     }
 }
