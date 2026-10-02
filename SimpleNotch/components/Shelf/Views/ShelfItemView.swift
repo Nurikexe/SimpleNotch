@@ -20,6 +20,10 @@ struct ShelfItemView: View {
     @State private var showStack = false
     @State private var cachedPreviewImage: NSImage?
     @State private var debouncedDropTarget = false
+    @ObservedObject private var actionBar = ShelfActionBarState.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var showsActions: Bool { actionBar.itemID == item.id }
 
     private var isSelected: Bool { viewModel.isSelected }
     private var shouldHideDuringDrag: Bool { selection.isDragging && selection.isSelected(item.id) && false }
@@ -35,6 +39,8 @@ struct ShelfItemView: View {
                 VStack(alignment: .center, spacing: 2) {
                     iconView
                     textView
+                        .opacity(showsActions ? 0 : 1)
+                        .blur(radius: showsActions ? 3 : 0)
                 }
                 .frame(width: 105)
                 .padding(.vertical, 10)
@@ -54,14 +60,40 @@ struct ShelfItemView: View {
                     onRightClick: viewModel.handleRightClick,
                     onClick: { event, nsview in
                         viewModel.handleClick(event: event, view: nsview)
-                    }
+                    },
+                    // Native views sit above SwiftUI drawing; let the bar's
+                    // clicks through while it shows.
+                    passthrough: showsActions
                 )
+
+                if showsActions {
+                    ShelfActionBar(actions: viewModel.availableActions) { action, alternate in
+                        viewModel.perform(action, alternate: alternate)
+                        if action == .copy {
+                            // Let the checkmark land before the bar leaves.
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(650))
+                                ShelfActionBarState.shared.dismiss()
+                            }
+                        } else {
+                            ShelfActionBarState.shared.dismiss()
+                        }
+                    }
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 12)
+                    .transition(reduceMotion ? .opacity : .softPop)
+                }
             } else {
                 Color.clear
                     .frame(width: 105)
                     .padding(.vertical, 10)
                     .padding(.horizontal, 5)
             }
+        }
+        .zIndex(showsActions ? 1 : 0)
+        .animation(Motion.respecting(Motion.snappy), value: showsActions)
+        .onDisappear {
+            if showsActions { ShelfActionBarState.shared.dismiss() }
         }
         .onChange(of: viewModel.isDropTargeted) { _, targeted in
             vm.dragDetectorTargeting = targeted
@@ -176,7 +208,8 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
     @ViewBuilder let dragPreviewContent: () -> Content
     let onRightClick: (NSEvent, NSView) -> Void
     let onClick: (NSEvent, NSView) -> Void
-    
+    var passthrough = false
+
     func makeNSView(context: Context) -> DraggableClickView {
         let view = DraggableClickView()
         view.item = item
@@ -184,6 +217,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         view.dragPreviewImage = cachedPreviewImage ?? renderDragPreview()
         view.onRightClick = onRightClick
         view.onClick = onClick
+        view.passthrough = passthrough
         return view
     }
     
@@ -196,6 +230,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         }
         nsView.onRightClick = onRightClick
         nsView.onClick = onClick
+        nsView.passthrough = passthrough
     }
     
     private func renderDragPreview() -> NSImage {
@@ -217,6 +252,11 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
         var dragPreviewImage: NSImage?
         var onRightClick: ((NSEvent, NSView) -> Void)?
         var onClick: ((NSEvent, NSView) -> Void)?
+        var passthrough = false
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            passthrough ? nil : super.hitTest(point)
+        }
 
         private var mouseDownEvent: NSEvent?
         private let dragThreshold: CGFloat = 3.0

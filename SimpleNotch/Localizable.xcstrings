@@ -2594,6 +2594,16 @@
         }
       }
     },
+    "Open" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть"
+          }
+        }
+      }
+    },
     "Open Calendar Settings" : {
       "localizations" : {
         "ru" : {
@@ -2914,6 +2924,16 @@
         }
       }
     },
+    "Remove" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить"
+          }
+        }
+      }
+    },
     "Remove from shelf after dragging" : {
       "localizations" : {
         "ru" : {
@@ -3136,6 +3156,16 @@
         }
       }
     },
+    "Share…" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поделиться…"
+          }
+        }
+      }
+    },
     "Shelf" : {
       "localizations" : {
         "ru" : {
@@ -3242,6 +3272,16 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Show HUD in open notch"
+          }
+        }
+      }
+    },
+    "Show in Finder" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показать в Finder"
           }
         }
       }

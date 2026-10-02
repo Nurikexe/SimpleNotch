@@ -113,7 +113,61 @@ final class ShelfItemViewModel: ObservableObject {
 
     func handleRightClick(event: NSEvent, view: NSView) {
         if !selection.isSelected(item.id) { selection.selectSingle(item) }
-        presentContextMenu(event: event, in: view)
+        actionAnchor = view
+        ShelfActionBarState.shared.show(for: item.id)
+    }
+
+    // MARK: Action bar
+
+    /// The item's click view; anchors the share picker.
+    weak var actionAnchor: NSView?
+
+    enum Action: String, CaseIterable, Identifiable {
+        case open = "Open"
+        case reveal = "Show in Finder"
+        case copy = "Copy"
+        case share = "Share…"
+        case remove = "Remove"
+
+        var id: String { rawValue }
+
+        var symbol: String {
+            switch self {
+            case .open: "arrow.up.forward.app"
+            case .reveal: "folder"
+            case .copy: "doc.on.doc"
+            case .share: "square.and.arrow.up"
+            case .remove: "trash"
+            }
+        }
+
+        var title: LocalizedStringKey { LocalizedStringKey(rawValue) }
+    }
+
+    /// The actions that apply to the current selection.
+    var availableActions: [Action] {
+        let selected = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
+        let fileURLs = selected.compactMap(\.fileURL)
+        let openable = selected.contains { itm in
+            if let url = itm.fileURL { return !isDirectory(url) }
+            if case .link = itm.kind { return true }
+            return false
+        }
+        return Action.allCases.filter { action in
+            switch action {
+            case .open: openable
+            case .reveal: !fileURLs.isEmpty
+            case .copy, .share, .remove: true
+            }
+        }
+    }
+
+    /// Runs an action on the selection; ⌥ turns Copy into Copy Path.
+    func perform(_ action: Action, alternate: Bool = false) {
+        guard let view = actionAnchor else { return }
+        let target = MenuActionTarget(item: item, view: view, viewModel: self)
+        let title = (action == .copy && alternate && item.fileURL != nil) ? "Copy Path" : action.rawValue
+        target.run(title)
     }
 
     func handleDoubleClick() {
@@ -207,64 +261,6 @@ final class ShelfItemViewModel: ObservableObject {
         if !selection.isSelected(item.id) { selection.selectSingle(item) }
     }
 
-    func presentContextMenu(event: NSEvent, in view: NSView) {
-        ensureContextMenuSelection()
-        let menu = NSMenu()
-
-        func addMenuItem(title: String) {
-            let mi = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            menu.addItem(mi)
-        }
-
-        let selectedItems = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
-        let selectedFileURLs = selectedItems.compactMap { $0.fileURL }
-        // URLs valid for Open (exclude folders)
-        let selectedOpenableURLs = selectedItems.compactMap { itm -> URL? in
-            if let u = itm.fileURL { return isDirectory(u) ? nil : u }
-            if case .link(let url) = itm.kind { return url }
-            return nil
-        }
-
-        // Kept short on purpose: Open, Show in Finder, Copy, Remove, Share.
-        if !selectedOpenableURLs.isEmpty { addMenuItem(title: "Open") }
-        if !selectedFileURLs.isEmpty { addMenuItem(title: "Show in Finder") }
-
-        menu.addItem(NSMenuItem.separator())
-        addMenuItem(title: "Copy")
-        // ⌥ turns Copy into Copy Path for files.
-        if !selectedFileURLs.isEmpty {
-            let copyPathItem = NSMenuItem(title: "Copy Path", action: nil, keyEquivalent: "")
-            copyPathItem.isAlternate = true
-            copyPathItem.keyEquivalentModifierMask = [.option]
-            menu.addItem(copyPathItem)
-        }
-        addMenuItem(title: "Remove")
-
-        menu.addItem(NSMenuItem.separator())
-        addMenuItem(title: "Share…")
-
-        let actionTarget = MenuActionTarget(item: item, view: view, viewModel: self)
-
-        for menuItem in menu.items {
-            if menuItem.isSeparatorItem { continue }
-            menuItem.target = actionTarget
-            menuItem.action = #selector(MenuActionTarget.handle(_:))
-
-            if let submenu = menuItem.submenu {
-                for subItem in submenu.items {
-                    if !subItem.isSeparatorItem {
-                        subItem.target = actionTarget
-                        subItem.action = #selector(MenuActionTarget.handle(_:))
-                    }
-                }
-            }
-        }
-        
-        menu.retainActionTarget(actionTarget)
-        
-        NSMenu.popUpContextMenu(menu, with: event, for: view)
-    }
-
     private func isDirectory(_ url: URL) -> Bool {
         return url.accessSecurityScopedResource { scoped in
             (try? scoped.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
@@ -327,6 +323,10 @@ final class ShelfItemViewModel: ObservableObject {
                 return
             }
 
+            run(title)
+        }
+
+        @MainActor func run(_ title: String) {
             switch title {
             case "Quick Look":
                 // Handle all selected items for Quick Look, not just the clicked item
