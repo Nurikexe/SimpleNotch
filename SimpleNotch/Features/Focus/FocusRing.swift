@@ -122,7 +122,7 @@ struct FocusWingsView: View {
                     FocusClock(run: run) { now in
                         Text(FocusFormat.clock(run.remaining(at: now)))
                             .contentTransition(.numericText(countsDown: true))
-                            .animation(Motion.snappy, value: Int(run.remaining(at: now).rounded(.up)))
+                            .animation(Motion.respecting(Motion.snappy), value: Int(run.remaining(at: now).rounded(.up)))
                             .foregroundStyle(run.state == .paused ? .gray : .white)
                     }
                 }

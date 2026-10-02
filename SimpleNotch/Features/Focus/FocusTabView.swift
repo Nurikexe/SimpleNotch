@@ -245,7 +245,7 @@ private struct TimeReadout: View {
         Text(FocusFormat.clock(seconds))
             .font(.system(size: 38, weight: .semibold, design: .rounded).monospacedDigit())
             .contentTransition(.numericText(countsDown: true))
-            .animation(Motion.snappy, value: Int(seconds.rounded(.up)))
+            .animation(Motion.respecting(Motion.snappy), value: Int(seconds.rounded(.up)))
     }
 }
 
@@ -325,9 +325,9 @@ private struct TimerDial: View {
                 }
             } else {
                 FocusRing(progress: min(1, focus.timerSetting / 3600), tint: tint, lineWidth: 7)
-                    .animation(Motion.interactive, value: focus.timerSetting)
+                    .animation(Motion.respecting(Motion.interactive), value: focus.timerSetting)
                     .scaleEffect(hovering ? 1.03 : 1)
-                    .animation(Motion.snappy, value: hovering)
+                    .animation(Motion.respecting(Motion.snappy), value: hovering)
             }
             centerSymbol
         }
@@ -417,7 +417,7 @@ private struct TimerPresets: View {
                         .contentShape(Capsule())
                 }
                 .buttonStyle(PressableStyle())
-                .animation(Motion.snappy, value: selected)
+                .animation(Motion.respecting(Motion.snappy), value: selected)
             }
         }
     }
@@ -547,6 +547,6 @@ struct PressableStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.9 : 1)
             .opacity(configuration.isPressed ? 0.85 : 1)
-            .animation(Motion.snappy, value: configuration.isPressed)
+            .animation(Motion.respecting(Motion.snappy), value: configuration.isPressed)
     }
 }
