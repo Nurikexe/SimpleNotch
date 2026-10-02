@@ -26,7 +26,7 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 echo "› Archiving"
 xcodebuild -project boringNotch.xcodeproj -scheme boringNotch -configuration Release \
   -derivedDataPath build/DerivedData -scmProvider system \
-  -archivePath "$OUT/SimpleNotch.xcarchive" archive | xcbeautify 2>/dev/null || true
+  -archivePath "$OUT/SimpleNotch.xcarchive" archive > "$OUT/archive.log" 2>&1 || { tail -30 "$OUT/archive.log"; exit 1; }
 [[ -d "$OUT/SimpleNotch.xcarchive" ]] || { echo "Archive failed"; exit 1; }
 
 echo "› Exporting with Developer ID"
