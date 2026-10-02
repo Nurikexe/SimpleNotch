@@ -317,14 +317,27 @@ final class ShelfItemViewModel: ObservableObject {
             menu.addItem(slideshowItem)
         }
 
+        // Copy and Remove sit high, so reaching them never means a long trip
+        // down past the notch.
+        menu.addItem(NSMenuItem.separator())
+        // Always show "Copy" for all item types
+        addMenuItem(title: "Copy")
+        // If there are file URLs, add "Copy Path" as an alternate menu item (Option key)
+        if !selectedFileURLs.isEmpty {
+            let copyPathItem = NSMenuItem(title: "Copy Path", action: nil, keyEquivalent: "")
+            copyPathItem.isAlternate = true
+            copyPathItem.keyEquivalentModifierMask = [.option]
+            menu.addItem(copyPathItem)
+        }
+
+        addMenuItem(title: "Remove")
+
         menu.addItem(NSMenuItem.separator())
         addMenuItem(title: "Share…")
         
         // Add image processing options for image files grouped under "Image Actions"
         let imageURLs = selectedFileURLs.filter { ImageProcessingService.shared.isImageFile($0) }
         if !imageURLs.isEmpty {
-            menu.addItem(NSMenuItem.separator())
-
             let imageActions = NSMenuItem(title: "Image Actions", action: nil, keyEquivalent: "")
             let imageSubmenu = NSMenu()
 
@@ -346,6 +359,9 @@ final class ShelfItemViewModel: ObservableObject {
 
             imageActions.submenu = imageSubmenu
             menu.addItem(imageActions)
+        }
+
+        if !selectedFileURLs.isEmpty || (selectedItems.count == 1 && { if case .file = item.kind { return true }; return false }()) {
             menu.addItem(NSMenuItem.separator())
         }
 
@@ -357,18 +373,6 @@ final class ShelfItemViewModel: ObservableObject {
 
         if selectedItems.count == 1, case .file(_) = item.kind { addMenuItem(title: "Rename") }
 
-        // Always show "Copy" for all item types
-        addMenuItem(title: "Copy")
-        // If there are file URLs, add "Copy Path" as an alternate menu item (Option key)
-        if !selectedFileURLs.isEmpty {
-            let copyPathItem = NSMenuItem(title: "Copy Path", action: nil, keyEquivalent: "")
-            copyPathItem.isAlternate = true
-            copyPathItem.keyEquivalentModifierMask = [.option]
-            menu.addItem(copyPathItem)
-        }
-
-        menu.addItem(NSMenuItem.separator())
-        addMenuItem(title: "Remove")
 
         let actionTarget = MenuActionTarget(item: item, view: view, viewModel: self)
 

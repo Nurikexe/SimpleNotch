@@ -318,6 +318,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        _ = SharingStateManager.shared // starts watching menus
 
         NotchRouter.shared.viewModelForScreen = { [weak self] screen in
             guard let self else { return nil }

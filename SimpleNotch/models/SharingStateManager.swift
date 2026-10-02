@@ -18,14 +18,24 @@ final class SharingStateManager: ObservableObject {
 	static let shared = SharingStateManager()
 
 	private var activeSessions: Int = 0 {
-		didSet {
-			let newValue = activeSessions > 0
-			if newValue != preventNotchClose {
-				preventNotchClose = newValue
-				if !newValue {
-					NotificationCenter.default.post(name: .sharingDidFinish, object: nil)
-				}
-			}
+		didSet { update(announceIdle: true) }
+	}
+
+	/// A menu (e.g. a Shelf item's context menu) is open. The pointer is then
+	/// over the menu, outside the notch, and closing the notch under it would
+	/// both dismiss the menu's context and make tracking stutter.
+	/// After a menu closes, the notch's own pointer watch decides when to
+	/// close, so an item that opens UI in the notch (Rename) isn't cut off.
+	private var menuTracking = false {
+		didSet { update(announceIdle: false) }
+	}
+
+	private func update(announceIdle: Bool) {
+		let newValue = activeSessions > 0 || menuTracking
+		guard newValue != preventNotchClose else { return }
+		preventNotchClose = newValue
+		if !newValue && announceIdle {
+			NotificationCenter.default.post(name: .sharingDidFinish, object: nil)
 		}
 	}
 
@@ -33,7 +43,19 @@ final class SharingStateManager: ObservableObject {
 
 	private var activeDelegates: [UUID: SharingLifecycleDelegate] = [:]
 
-	private init() {}
+	private var menuObservers: [NSObjectProtocol] = []
+
+	private init() {
+		let center = NotificationCenter.default
+		menuObservers = [
+			center.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { [weak self] _ in
+				MainActor.assumeIsolated { self?.menuTracking = true }
+			},
+			center.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { [weak self] _ in
+				MainActor.assumeIsolated { self?.menuTracking = false }
+			},
+		]
+	}
 	
 	func requestCloseIfReady() {
 		if !preventNotchClose {
