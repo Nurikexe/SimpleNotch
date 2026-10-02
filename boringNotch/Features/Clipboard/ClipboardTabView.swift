@@ -21,6 +21,9 @@ struct ClipboardTabView: View {
     @State private var hint: Hint?
     @State private var hintTask: Task<Void, Never>?
     @FocusState private var searchFocused: Bool
+    /// False while the Tab itself animates in. Rows built then would run their
+    /// own pop-in on top of the Tab's transition and visibly jiggle sideways.
+    @State private var listSettled = false
     @Namespace private var selectionNamespace
 
     private enum Hint: Equatable {
@@ -39,6 +42,7 @@ struct ClipboardTabView: View {
     }
 
     private var rowTransition: AnyTransition { reduceMotion ? .opacity : .softPop }
+    private var listRowTransition: AnyTransition { listSettled ? rowTransition : .identity }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -58,6 +62,10 @@ struct ClipboardTabView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {
             selection = visible.first?.id
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(500))
+                listSettled = true
+            }
             if vm.keyboardSessionActive { searchFocused = true }
         }
         .onChange(of: vm.keyboardSessionActive) { _, active in
@@ -135,6 +143,8 @@ struct ClipboardTabView: View {
                     .padding(.bottom, hint == nil ? 0 : 30)
                     .animation(Motion.respecting(Motion.snappy), value: manager.clips)
                 }
+                // Rows lay out once, in place, while the Tab transitions in.
+                .transaction { if !listSettled { $0.animation = nil } }
                 .onChange(of: scrollRequest) { _, id in
                     guard let id else { return }
                     withMotion(Motion.smooth) { proxy.scrollTo(id) }
@@ -157,7 +167,7 @@ struct ClipboardTabView: View {
             onDelete: { manager.delete(clip) }
         )
         .id(clip.id)
-        .transition(rowTransition)
+        .transition(listRowTransition)
     }
 
     private func sectionHeader(_ title: LocalizedStringKey, symbol: String) -> some View {
@@ -170,7 +180,7 @@ struct ClipboardTabView: View {
         .padding(.leading, 8)
         .padding(.top, 4)
         .padding(.bottom, 2)
-        .transition(rowTransition)
+        .transition(listRowTransition)
     }
 
     private var emptyState: some View {
