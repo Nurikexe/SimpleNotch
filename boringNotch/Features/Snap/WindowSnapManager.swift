@@ -45,10 +45,9 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
     private var isRunning = false
 
     // The current mouse-down candidate.
-    private var draggedWindow: SnapWindow?
     private var draggedWindowID: CGWindowID?
+    private var draggedPID: pid_t?
     private var dragStartBounds: CGRect?
-    private var dragStartPointer: CGPoint?
     private let log = Logger(subsystem: "io.github.nurikexe.SimpleNotch", category: "Snap")
     private var lastMoveCheck: CFTimeInterval = 0
 
@@ -120,17 +119,12 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
         endDrag()
         // The window list needs no permission, so the drag is noticed (and the
         // grid shown) even before Accessibility is granted.
-        let pointer = NSEvent.mouseLocation
-        guard let hit = Self.windowUnder(appKitPoint: pointer) else { return }
+        guard let hit = Self.windowUnder(appKitPoint: NSEvent.mouseLocation) else { return }
         draggedWindowID = hit.id
+        draggedPID = hit.pid
         dragStartBounds = hit.bounds
-        dragStartPointer = pointer
         lastMoveCheck = 0
-        // The Accessibility handle is needed only to move the window on drop.
-        if AccessibilityPermission.shared.isTrusted {
-            draggedWindow = SnapWindow.at(appKitPoint: pointer)
-        }
-        log.debug("mouseDown on window \(hit.id) owner \(hit.owner, privacy: .public), AX \(self.draggedWindow != nil)")
+        log.debug("mouseDown on window \(hit.id) owner \(hit.owner, privacy: .public)")
     }
 
     private func mouseDragged() {
@@ -166,12 +160,12 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
             AccessibilityPermission.shared.requestAccessibilityAuthorization()
             return
         }
-        // Granted mid-drag, or AX missed at mouse-down: find the window by
-        // where its title bar is now.
-        let window = draggedWindow ?? draggedWindowID.flatMap(Self.bounds(ofWindow:)).flatMap { bounds in
-            SnapWindow.at(appKitPoint: SnapCoordinates.flip(CGPoint(x: bounds.midX, y: bounds.minY + 10)))
-        }
-        guard let window else {
+        // Match the dragged window among its app's AX windows by frame. Hit-
+        // testing the title bar fails for apps with custom title bars (Telegram).
+        guard let pid = draggedPID,
+              let bounds = draggedWindowID.flatMap(Self.bounds(ofWindow:)),
+              let window = SnapWindow.matching(pid: pid, cgBounds: bounds)
+        else {
             log.debug("drop: no AX window to move")
             return
         }
@@ -182,6 +176,7 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
 
     private struct WindowHit {
         let id: CGWindowID
+        let pid: pid_t
         let bounds: CGRect
         let owner: String
     }
@@ -200,9 +195,13 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
                   let id = info[kCGWindowNumber as String] as? CGWindowID,
                   bounds.contains(cgPoint)
             else { continue }
-            // Front-to-back: the first window under the point is the one hit.
-            guard pid != ownPID, layer == 0 else { return nil }
-            return WindowHit(id: id, bounds: bounds, owner: info[kCGWindowOwnerName as String] as? String ?? "?")
+            // Front-to-back. Skip our own panels and floating overlays (often
+            // click-through); a wrong pick is harmless, as only a window that
+            // actually moves starts a drag.
+            guard pid != ownPID, layer == 0,
+                  (info[kCGWindowAlpha as String] as? Double ?? 1) > 0
+            else { continue }
+            return WindowHit(id: id, pid: pid, bounds: bounds, owner: info[kCGWindowOwnerName as String] as? String ?? "?")
         }
         return nil
     }
@@ -216,10 +215,9 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
 
     private func endDrag() {
         hideGrid()
-        draggedWindow = nil
         draggedWindowID = nil
+        draggedPID = nil
         dragStartBounds = nil
-        dragStartPointer = nil
         if isWindowDragActive { isWindowDragActive = false }
     }
 

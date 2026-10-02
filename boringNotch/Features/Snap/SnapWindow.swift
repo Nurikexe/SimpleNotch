@@ -47,6 +47,23 @@ struct SnapWindow {
         return nil
     }
 
+    /// The window of app `pid` whose frame is closest to `cgBounds`
+    /// (top-left-origin global space, as the window list reports it).
+    static func matching(pid: pid_t, cgBounds: CGRect) -> SnapWindow? {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, messagingTimeout)
+        guard let windows = copy(app, kAXWindowsAttribute) as? [AXUIElement] else { return nil }
+        let scored = windows.compactMap { element -> (SnapWindow, CGFloat)? in
+            let window = SnapWindow(element: element)
+            guard let position = window.position, let size = window.size else { return nil }
+            let distance = abs(position.x - cgBounds.minX) + abs(position.y - cgBounds.minY)
+                + abs(size.width - cgBounds.width) + abs(size.height - cgBounds.height)
+            return (window, distance)
+        }
+        guard let best = scored.min(by: { $0.1 < $1.1 }), best.1 < 40 else { return nil }
+        return best.0
+    }
+
     /// The focused window of the frontmost app.
     static func focused() -> SnapWindow? {
         guard let app = NSWorkspace.shared.frontmostApplication,
