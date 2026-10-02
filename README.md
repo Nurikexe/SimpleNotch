@@ -1,35 +1,151 @@
-# SimpleNotch
+<p align="center">
+  <img src="docs/images/icon.png" width="128" height="128" alt="SimpleNotch icon">
+</p>
 
-The MacBook notch as a small, always-there workspace: media controls, a file shelf, clipboard history, window snapping, a Pomodoro with a cartoon tomato, an English ↔ Russian translator, and birthday countdowns.
+<h1 align="center">SimpleNotch</h1>
 
-Requires macOS 15 or newer.
+<p align="center">
+  Turn your MacBook's notch into a small workspace that's always there.<br>
+  Media controls, a file shelf, clipboard history, window snapping, a Pomodoro timer, a translator and birthday countdowns, all behind one hover.
+</p>
+
+<p align="center">
+  <img alt="macOS 15+" src="https://img.shields.io/badge/macOS-15%2B-black?logo=apple">
+  <img alt="Swift" src="https://img.shields.io/badge/Swift-SwiftUI-orange?logo=swift">
+  <img alt="License: GPL v3" src="https://img.shields.io/badge/license-GPLv3-blue">
+</p>
+
+---
+
+## Why
+
+The notch is dead space in the middle of your menu bar. SimpleNotch makes it useful without adding clutter. Hover over it and it opens with a spring. Move away and it closes. When it's closed and nothing is running, it uses no CPU.
+
+It's built on the design and animation of [boring.notch](https://github.com/TheBoredTeam/boring.notch) and adds the tools you'd otherwise install as five separate menu-bar apps.
 
 ## Features
 
-- **Home**: now-playing controls with visualizer, plus Calendar and Reminders
-- **Shelf**: drop files onto the notch and pick them up later
-- **Clipboard**: the last 50 copies, with pinning; `⌘⇧V` opens it, picking an item pastes it
-- **Focus**: Pomodoro (25/5/15, editable) and a simple timer, with progress shown on the closed notch
-- **Translate**: offline English ↔ Russian via Apple's Translation framework; `⌃⌥T` translates the selection
-- **Birthdays**: countdowns to the people you care about
-- **Window snapping**: drag a window to the notch and drop it on a layout, or use `⌃⌥` shortcuts
+### 🎵 Media
+- Now-playing artwork, title and artist, with a live audio visualizer.
+- Play/pause, skip and a scrubbable progress bar.
+- Works with Apple Music, Spotify, YouTube Music and anything that reports Now Playing.
+- Calendar events and Reminders sit next to the player.
 
-## Building
+### 📂 Shelf
+- Drag files, folders, links or text onto the notch to keep them for later.
+- Drag them back out to any app.
+- Right-click an item to Open, Show in Finder, Copy, Share or Remove it.
 
-Open `SimpleNotch.xcodeproj` in Xcode 26 or newer and run the `SimpleNotch` scheme.
+### 📋 Clipboard history
+- Keeps your last **50** copies: text, links, images and files.
+- Pin the ones you want to keep.
+- Press `⌘⇧V` to open it. Click an item to paste it into the app you were using.
+- Content that password managers mark as concealed or transient is never saved.
+
+### 🪟 Window snapping
+- Drag any window toward the notch and a layout grid drops down. Release over a zone to snap the window there.
+- Every layout also has a keyboard shortcut (see below).
+
+### 🍅 Focus
+- A Pomodoro timer with an animated cartoon tomato: 25 min focus, 5 min short break, 15 min long break after 4 sessions. All of these can be changed.
+- Breaks start automatically. Focus sessions wait for you.
+- A simple countdown timer, too.
+- Progress glides around the closed notch, so you can see it without opening anything.
+
+### 🌐 Translate
+- English ↔ Russian translation on your Mac, using Apple's Translation framework.
+- Select text anywhere and press `⌃⌥T`.
+
+### 🎂 Birthdays
+- Add people with a date and an emoji.
+- See a countdown to each person's next birthday.
+
+### Feel
+- Every movement uses a spring and can be interrupted. Progress updates every frame, at up to 120 Hz on ProMotion displays.
+- Respects **Reduce Motion**.
+- No hover haptics.
+- English and Russian interface.
+
+## Keyboard shortcuts
+
+You can change every shortcut in Settings.
+
+| Action | Shortcut |
+| --- | --- |
+| Open / close the notch | `⌘⇧I` |
+| Toggle sneak peek | `⌘⇧H` |
+| Clipboard history | `⌘⇧V` |
+| Translate selection | `⌃⌥T` |
+| Maximise window | `⌃⌥↩` |
+| Centre window | `⌃⌥C` |
+| Left / right half | `⌃⌥←` / `⌃⌥→` |
+| Top-left / top-right quarter | `⌃⌥U` / `⌃⌥I` |
+| Bottom-left / bottom-right quarter | `⌃⌥J` / `⌃⌥K` |
+| Left / centre / right third | `⌃⌥D` / `⌃⌥F` / `⌃⌥G` |
+| Left two-thirds | `⌃⌥E` |
+
+## Requirements
+
+- A Mac running **macOS 15 Sequoia** or newer. It works best on a MacBook with a notch, and also works on displays without one.
+
+### Permissions
+
+SimpleNotch asks for a permission only when you first use the feature that needs it.
+
+| Permission | Used for |
+| --- | --- |
+| Accessibility | Window snapping, pasting from Clipboard history, translating the selection |
+| Calendars & Reminders | Showing upcoming events and reminders |
+| Automation (Apple Events) | Controlling music apps |
+
+SimpleNotch runs outside the App Sandbox, because moving other apps' windows and pasting into them isn't possible inside it. See [ADR 0003](docs/adr/0003-no-app-sandbox-developer-id.md) for the reasoning.
+
+## Install
+
+Signed and notarized builds will be published on the [Releases](https://github.com/Nurikexe/SimpleNotch/releases) page. They update themselves through Sparkle. Until then, build from source.
+
+## Building from source
+
+```sh
+git clone https://github.com/Nurikexe/SimpleNotch.git
+cd SimpleNotch
+open SimpleNotch.xcodeproj
+```
+
+Select the `SimpleNotch` scheme and run it. You need Xcode 26 or newer. Swift packages resolve on the first build. To sign with your own team, change the signing team in the target's *Signing & Capabilities*.
 
 ## Releasing
 
-`scripts/release.sh` archives, signs with Developer ID, notarizes, builds a DMG and writes the Sparkle `appcast.xml`. Each release attaches both files to a GitHub release tagged `v<version>`. The app's update feed always points at the latest release's `appcast.xml`.
+`scripts/release.sh` does the full release:
+1. Archives the app.
+2. Signs it with Developer ID.
+3. Notarizes it.
+4. Builds `SimpleNotch-<version>.dmg`.
+5. Writes the Sparkle `appcast.xml`.
+
+Attach both files to a GitHub release tagged `v<version>`. The app's update feed always points at the latest release's `appcast.xml`.
 
 One-time setup:
 
-1. Create a **Developer ID Application** certificate in Xcode > Settings > Accounts > Manage Certificates.
-2. Store notarization credentials: `xcrun notarytool store-credentials SimpleNotch --apple-id <apple-id> --team-id HMBA454DQ4`. Use an app-specific password.
-3. Generate the Sparkle signing key with `build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys`. It stays in your keychain. Add the printed public key to `SimpleNotch/Info.plist` as `SUPublicEDKey`.
+1. Create a **Developer ID Application** certificate in *Xcode › Settings › Accounts › Manage Certificates*.
+2. Store notarization credentials with an app-specific password:
+   `xcrun notarytool store-credentials SimpleNotch --apple-id <apple-id> --team-id <team-id>`
+3. Generate the Sparkle signing key with `build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys`. The key stays in your keychain. Add the printed public key to `SimpleNotch/Info.plist` as `SUPublicEDKey`.
 
-## Credits and license
+## Project layout
 
-SimpleNotch is built on [boring.notch](https://github.com/TheBoredTeam/boring.notch) by TheBoredTeam and its contributors, and borrows ideas from [Cyclop](https://github.com/akalikbergenov/cyclop) by akalikbergenov (MIT).
+- `CONTEXT.md` is the project's vocabulary.
+- `docs/adr/` holds the architecture decisions.
+- `CLAUDE.md` sets the motion standard that every animation must meet.
 
-Like boring.notch, SimpleNotch is licensed under the [GNU GPL v3](LICENSE). Third-party licenses are listed in [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES).
+## Credits
+
+SimpleNotch is a fork of **[boring.notch](https://github.com/TheBoredTeam/boring.notch)** by TheBoredTeam and its contributors. Its notch design, animations and media stack come from there.
+
+Some feature ideas come from **[Cyclop](https://github.com/akalikbergenov/cyclop)** by akalikbergenov (MIT).
+
+Third-party licenses are listed in [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES).
+
+## License
+
+Like boring.notch, SimpleNotch is free software under the [GNU General Public License v3](LICENSE).
