@@ -198,32 +198,113 @@ private struct TomatoFigure: View {
     }
 
     private func body(_ s: CGFloat) -> some View {
+        TomatoBody(size: s, detailed: detailed)
+            .frame(width: s * 0.86, height: s * 0.74)
+            .offset(y: s * 0.07)
+            .shadow(color: Self.deepRed.opacity(0.45), radius: s * 0.05, y: s * 0.025)
+    }
+}
+
+/// The fruit, shaded for a soft pseudo-3D look: key light from the top left,
+/// a shadowed lower-right edge, warm bounce light underneath, a hollow round
+/// the stem and a two-part specular highlight. Flattened into one layer so the
+/// breathing scale costs a single texture transform.
+private struct TomatoBody: View {
+    let size: CGFloat
+    let detailed: Bool
+
+    private static let light = Color(red: 1.0, green: 0.52, blue: 0.40)
+    private static let red = Color(red: 0.95, green: 0.24, blue: 0.19)
+    private static let deep = Color(red: 0.55, green: 0.06, blue: 0.07)
+
+    var body: some View {
+        let s = size
+        let shape = TomatoBodyShape()
         ZStack {
-            Ellipse()
-                .fill(
-                    RadialGradient(
-                        colors: [Self.red, Self.deepRed],
-                        center: UnitPoint(x: 0.36, y: 0.32),
-                        startRadius: 0,
-                        endRadius: s * 0.55
-                    )
+            // Form: lit top left, falling off to a deep red rim.
+            shape.fill(
+                RadialGradient(
+                    stops: [
+                        .init(color: Self.light, location: 0),
+                        .init(color: Self.red, location: 0.38),
+                        .init(color: Self.deep, location: 0.95),
+                    ],
+                    center: UnitPoint(x: 0.35, y: 0.3),
+                    startRadius: 0,
+                    endRadius: s * 0.52
                 )
-            // Soft lobes give it a tomato rather than a ball silhouette.
+                .shadow(.inner(color: Self.deep.opacity(detailed ? 0.9 : 0.6), radius: s * 0.09, x: -s * 0.04, y: -s * 0.06))
+            )
+
+            if detailed {
+                Group {
+                    // Warm light bounced up from below.
+                    Ellipse()
+                        .fill(Color(red: 1.0, green: 0.45, blue: 0.25).opacity(0.45))
+                        .frame(width: s * 0.5, height: s * 0.12)
+                        .offset(x: -s * 0.04, y: s * 0.3)
+                        .blur(radius: s * 0.05)
+                    // Soft ribs: broad, faint shading, never an outline.
+                    ForEach([-0.17, 0.17], id: \.self) { x in
+                        Capsule()
+                            .fill(Self.deep.opacity(0.28))
+                            .frame(width: s * 0.05, height: s * 0.5)
+                            .rotationEffect(.degrees(x < 0 ? 8 : -8))
+                            .offset(x: s * x, y: s * 0.06)
+                            .blur(radius: s * 0.04)
+                    }
+                    // The hollow round the stem, shadowed by the leaves.
+                    Ellipse()
+                        .fill(Self.deep.opacity(0.7))
+                        .frame(width: s * 0.3, height: s * 0.12)
+                        .offset(y: -s * 0.3)
+                        .blur(radius: s * 0.035)
+                    // Broad sheen, then the sharp glint inside it.
+                    Ellipse()
+                        .fill(.white.opacity(0.22))
+                        .frame(width: s * 0.3, height: s * 0.17)
+                        .rotationEffect(.degrees(-30))
+                        .offset(x: -s * 0.17, y: -s * 0.13)
+                        .blur(radius: s * 0.03)
+                }
+                .mask(shape)
+            }
+
             Ellipse()
-                .stroke(Self.deepRed.opacity(0.35), lineWidth: s * 0.015)
-                .frame(width: s * 0.36, height: s * 0.62)
-                .opacity(detailed ? 1 : 0)
-            // Glossy highlight.
-            Ellipse()
-                .fill(.white.opacity(0.42))
-                .frame(width: s * 0.17, height: s * 0.09)
-                .rotationEffect(.degrees(-28))
-                .offset(x: -s * 0.2, y: -s * 0.16)
-                .blur(radius: s * 0.008)
+                .fill(.white.opacity(detailed ? 0.8 : 0.45))
+                .frame(width: s * 0.12, height: s * 0.055)
+                .rotationEffect(.degrees(-30))
+                .offset(x: -s * 0.2, y: -s * 0.17)
+                .blur(radius: s * 0.006)
+            if detailed {
+                Circle()
+                    .fill(.white.opacity(0.7))
+                    .frame(width: s * 0.025)
+                    .offset(x: -s * 0.1, y: -s * 0.22)
+                    .blur(radius: s * 0.003)
+            }
         }
-        .frame(width: s * 0.86, height: s * 0.74)
-        .offset(y: s * 0.07)
-        .shadow(color: Self.deepRed.opacity(0.5), radius: s * 0.04, y: s * 0.02)
+        .drawingGroup()
+    }
+}
+
+/// A tomato rather than a ball: dimpled at the stem, shouldered, and softly
+/// two-lobed underneath.
+private struct TomatoBodyShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
+        }
+        var p = Path()
+        p.move(to: pt(0.5, 0.065))
+        p.addCurve(to: pt(0.0, 0.5), control1: pt(0.27, -0.02), control2: pt(0.0, 0.2))
+        p.addCurve(to: pt(0.32, 0.985), control1: pt(0.0, 0.8), control2: pt(0.15, 0.99))
+        p.addCurve(to: pt(0.5, 0.96), control1: pt(0.41, 0.98), control2: pt(0.46, 0.965))
+        p.addCurve(to: pt(0.68, 0.985), control1: pt(0.54, 0.965), control2: pt(0.59, 0.98))
+        p.addCurve(to: pt(1.0, 0.5), control1: pt(0.85, 0.99), control2: pt(1.0, 0.8))
+        p.addCurve(to: pt(0.5, 0.065), control1: pt(1.0, 0.2), control2: pt(0.73, -0.02))
+        p.closeSubpath()
+        return p
     }
 }
 
@@ -258,7 +339,14 @@ private struct Calyx: View {
             ForEach(0..<5, id: \.self) { i in
                 let angle = -90.0 + Double(i - 2) * 36
                 LeafShape()
-                    .fill(LinearGradient(colors: [Color(red: 0.42, green: 0.80, blue: 0.36), Color(red: 0.20, green: 0.55, blue: 0.22)], startPoint: .top, endPoint: .bottom))
+                    .fill(LinearGradient(colors: [Color(red: 0.50, green: 0.86, blue: 0.40), Color(red: 0.16, green: 0.48, blue: 0.20)], startPoint: .top, endPoint: .bottom))
+                    .overlay {
+                        // Midrib.
+                        Capsule()
+                            .fill(.white.opacity(0.25))
+                            .frame(width: max(0.5, s * 0.008))
+                            .padding(.vertical, s * 0.03)
+                    }
                     .frame(width: s * 0.1, height: s * 0.22)
                     .offset(y: -s * 0.09)
                     // Leaves spring up with `lift` and droop while asleep.
@@ -272,6 +360,7 @@ private struct Calyx: View {
                 .offset(y: -s * 0.08 - lift * s * 0.03)
         }
         .frame(width: s * 0.4, height: s * 0.2)
+        .shadow(color: .black.opacity(0.3), radius: s * 0.015, y: s * 0.015)
     }
 }
 
@@ -352,6 +441,9 @@ private struct TomatoEye: View {
             Circle().fill(.white)
                 .frame(width: s * 0.03)
                 .offset(x: s * 0.015, y: -s * 0.025)
+            Circle().fill(.white.opacity(0.6))
+                .frame(width: s * 0.013)
+                .offset(x: -s * 0.015, y: s * 0.025)
         }
     }
 }
@@ -479,7 +571,7 @@ private struct Feet: View {
 
 private func foot(_ s: CGFloat) -> some View {
     Capsule()
-        .fill(Color(red: 0.24, green: 0.52, blue: 0.20))
+        .fill(LinearGradient(colors: [Color(red: 0.36, green: 0.68, blue: 0.30), Color(red: 0.16, green: 0.42, blue: 0.16)], startPoint: .top, endPoint: .bottom))
         .frame(width: s * 0.13, height: s * 0.06)
 }
 
