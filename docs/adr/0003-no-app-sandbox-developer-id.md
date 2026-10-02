@@ -1,0 +1,3 @@
+# Unsandboxed, distributed via Developer ID — never the Mac App Store
+
+Unlike upstream boring.notch, SimpleNotch runs with the App Sandbox off. Snapping other apps' windows and pasting a Clip into the frontmost app both need the Accessibility API and synthetic key events, which the sandbox blocks; media controls also rely on the private MediaRemote framework. This rules out the Mac App Store, so releases are Developer ID–signed, notarized DMGs on GitHub Releases, updated through Sparkle with an appcast hosted alongside them. Do not re-enable the sandbox: Snap and paste-on-pick will silently stop working.
