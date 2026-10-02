@@ -22,7 +22,7 @@ struct DynamicNotchApp: App {
 
     init() {
         updaterController = SPUStandardUpdaterController(
-            startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+            startingUpdater: true, updaterDelegate: nil, userDriverDelegate: UpdaterUserDriverDelegate.shared)
 
         // Initialize the settings window controller with the updater controller
         SettingsWindowController.shared.setUpdaterController(updaterController)
@@ -46,6 +46,42 @@ struct DynamicNotchApp: App {
             }
             .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
         }
+    }
+}
+
+/// SimpleNotch is a menu-bar (accessory) app, so Sparkle's windows can open
+/// behind other apps. A hidden modal alert still blocks the whole app, so
+/// bring every Sparkle window to the front.
+final class UpdaterUserDriverDelegate: NSObject, SPUStandardUserDriverDelegate {
+    static let shared = UpdaterUserDriverDelegate()
+
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+
+    func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
+        if handleShowingUpdate { bringForward() }
+    }
+
+    func standardUserDriverWillShowModalAlert() {
+        bringForward()
+        // The alert window exists once its modal session starts; the main
+        // queue still drains inside that session.
+        DispatchQueue.main.async {
+            guard let alert = NSApp.modalWindow else { return }
+            alert.level = .floating
+            alert.orderFrontRegardless()
+            alert.makeKey()
+        }
+    }
+
+    func standardUserDriverDidShowModalAlert() {
+        if SettingsWindowController.shared.window?.isVisible != true {
+            NSApp.setActivationPolicy(.accessory)
+        }
+    }
+
+    private func bringForward() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
     }
 }
 
