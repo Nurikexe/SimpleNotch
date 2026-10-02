@@ -18,6 +18,16 @@ Requires macOS 15 or newer.
 
 Open `boringNotch.xcodeproj` in Xcode 26 or newer and run the `boringNotch` scheme.
 
+## Releasing
+
+`scripts/release.sh` archives, signs with Developer ID, notarizes, builds a DMG and writes the Sparkle `appcast.xml`. Each release attaches both files to a GitHub release tagged `v<version>`. The app's update feed always points at the latest release's `appcast.xml`.
+
+One-time setup:
+
+1. Create a **Developer ID Application** certificate in Xcode > Settings > Accounts > Manage Certificates.
+2. Store notarization credentials: `xcrun notarytool store-credentials SimpleNotch --apple-id <apple-id> --team-id HMBA454DQ4`. Use an app-specific password.
+3. Generate the Sparkle signing key with `build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys`. It stays in your keychain. Add the printed public key to `boringNotch/Info.plist` as `SUPublicEDKey`.
+
 ## Credits and license
 
 SimpleNotch is built on [boring.notch](https://github.com/TheBoredTeam/boring.notch) by TheBoredTeam and its contributors, and borrows ideas from [Cyclop](https://github.com/akalikbergenov/cyclop) by akalikbergenov (MIT).
