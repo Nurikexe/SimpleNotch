@@ -1,6 +1,6 @@
 # SimpleNotch
 
-A macOS app that turns the MacBook notch into a small, always-there workspace: media, files, clipboard, focus timers, translation and birthdays. A fork of boring.notch.
+A macOS app that turns the MacBook notch into a small, always-there workspace: media, files, clipboard, focus timers, translation and birthdays.
 
 ## Language
 

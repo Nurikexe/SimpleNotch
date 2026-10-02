@@ -6,7 +6,7 @@
 #   1. Xcode > Settings > Accounts > Manage Certificates > + "Developer ID Application".
 #   2. xcrun notarytool store-credentials SimpleNotch --apple-id <you> --team-id HMBA454DQ4
 #   3. build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys
-#      and paste the printed public key into boringNotch/Info.plist as SUPublicEDKey.
+#      and paste the printed public key into SimpleNotch/Info.plist as SUPublicEDKey.
 #
 # Usage: scripts/release.sh            (version comes from MARKETING_VERSION)
 set -euo pipefail
@@ -16,7 +16,7 @@ PROFILE=${NOTARY_PROFILE:-SimpleNotch}
 OUT=build/release
 SPARKLE=build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin
 
-/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" boringNotch/Info.plist >/dev/null 2>&1 \
+/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" SimpleNotch/Info.plist >/dev/null 2>&1 \
   || { echo "SUPublicEDKey missing from Info.plist (run generate_keys first)"; exit 1; }
 security find-identity -v -p codesigning | grep -q "Developer ID Application" \
   || { echo "No Developer ID Application certificate in the keychain"; exit 1; }
@@ -24,7 +24,7 @@ security find-identity -v -p codesigning | grep -q "Developer ID Application" \
 rm -rf "$OUT" && mkdir -p "$OUT"
 
 echo "› Archiving"
-xcodebuild -project boringNotch.xcodeproj -scheme boringNotch -configuration Release \
+xcodebuild -project SimpleNotch.xcodeproj -scheme SimpleNotch -configuration Release \
   -derivedDataPath build/DerivedData -scmProvider system \
   -archivePath "$OUT/SimpleNotch.xcarchive" archive > "$OUT/archive.log" 2>&1 || { tail -30 "$OUT/archive.log"; exit 1; }
 [[ -d "$OUT/SimpleNotch.xcarchive" ]] || { echo "Archive failed"; exit 1; }

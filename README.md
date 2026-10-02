@@ -16,7 +16,7 @@ Requires macOS 15 or newer.
 
 ## Building
 
-Open `boringNotch.xcodeproj` in Xcode 26 or newer and run the `boringNotch` scheme.
+Open `SimpleNotch.xcodeproj` in Xcode 26 or newer and run the `SimpleNotch` scheme.
 
 ## Releasing
 
@@ -26,7 +26,7 @@ One-time setup:
 
 1. Create a **Developer ID Application** certificate in Xcode > Settings > Accounts > Manage Certificates.
 2. Store notarization credentials: `xcrun notarytool store-credentials SimpleNotch --apple-id <apple-id> --team-id HMBA454DQ4`. Use an app-specific password.
-3. Generate the Sparkle signing key with `build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys`. It stays in your keychain. Add the printed public key to `boringNotch/Info.plist` as `SUPublicEDKey`.
+3. Generate the Sparkle signing key with `build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys`. It stays in your keychain. Add the printed public key to `SimpleNotch/Info.plist` as `SUPublicEDKey`.
 
 ## Credits and license
 
