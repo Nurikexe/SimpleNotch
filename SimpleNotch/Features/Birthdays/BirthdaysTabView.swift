@@ -122,6 +122,7 @@ struct BirthdaysTabView: View {
             }
             .animation(Motion.respecting(Motion.snappy), value: list.map(\.id))
         }
+        .notchScrollRegion()
         .scrollBounceBehavior(.basedOnSize)
     }
 

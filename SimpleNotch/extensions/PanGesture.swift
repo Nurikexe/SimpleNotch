@@ -18,7 +18,35 @@ enum PanDirection {
     func signed(deltaX: CGFloat, deltaY: CGFloat) -> CGFloat { (isHorizontal ? deltaX : deltaY) * sign }
 }
 
+/// Scrollable lists inside the notch. A scroll over one of them scrolls the
+/// list; it must never count as the notch's open or close gesture.
+@MainActor
+final class NotchScrollRegions {
+    static let shared = NotchScrollRegions()
+    private var frames: [UUID: CGRect] = [:]
+
+    func set(_ frame: CGRect?, for id: UUID) { frames[id] = frame }
+
+    /// `point` is in the window's SwiftUI (top-left) space.
+    func contains(_ point: CGPoint) -> Bool { frames.values.contains { $0.contains(point) } }
+}
+
+private struct NotchScrollRegion: ViewModifier {
+    @State private var id = UUID()
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                NotchScrollRegions.shared.set(frame, for: id)
+            }
+            .onDisappear { NotchScrollRegions.shared.set(nil, for: id) }
+    }
+}
+
 extension View {
+    /// Marks a scrollable list so scrolling it doesn't open or close the notch.
+    func notchScrollRegion() -> some View { modifier(NotchScrollRegion()) }
+
     func panGesture(direction: PanDirection, threshold: CGFloat = 4, action: @escaping (CGFloat, NSEvent.Phase) -> Void) -> some View {
         self
             .gesture(
@@ -104,7 +132,20 @@ private struct ScrollMonitor: NSViewRepresentable {
             endTask = nil
         }
 
+        private func isOverScrollRegion(_ event: NSEvent) -> Bool {
+            guard let height = event.window?.contentView?.bounds.height else { return false }
+            let location = event.locationInWindow
+            return NotchScrollRegions.shared.contains(CGPoint(x: location.x, y: height - location.y))
+        }
+
         private func handleScroll(_ event: NSEvent) {
+            if isOverScrollRegion(event) {
+                if active { action(0, .ended) }
+                active = false
+                accumulated = 0
+                endTask?.cancel()
+                return
+            }
             if event.phase == .ended || event.momentumPhase == .ended {
                 if active {
                     action(accumulated.magnitude, .ended)

@@ -246,6 +246,7 @@ private struct TranslationOutput: View {
                 .padding(10)
                 .padding(.trailing, 18)
             }
+            .notchScrollRegion()
             .modifier(TranslatingPulse(active: manager.isTranslating))
 
             if !manager.output.isEmpty && manager.errorMessage == nil {

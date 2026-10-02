@@ -143,6 +143,7 @@ struct ClipboardTabView: View {
                     .padding(.bottom, hint == nil ? 0 : 30)
                     .animation(Motion.respecting(Motion.snappy), value: manager.clips)
                 }
+                .notchScrollRegion()
                 // Rows lay out once, in place, while the Tab transitions in.
                 .transaction { if !listSettled { $0.animation = nil } }
                 .onChange(of: scrollRequest) { _, id in

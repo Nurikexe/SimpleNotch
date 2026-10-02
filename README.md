@@ -110,7 +110,12 @@ SimpleNotch runs outside the App Sandbox, because moving other apps' windows and
 2. Open it and drag **SimpleNotch** into **Applications**.
 3. Launch it, then hover over the notch.
 
-Releases are signed with Developer ID and notarized by Apple, so they open without warnings. SimpleNotch updates itself through Sparkle. Older versions are on the [Releases](https://github.com/Nurikexe/SimpleNotch/releases) page.
+> **First launch:** releases are not notarized by Apple yet, so macOS blocks the first open with *"SimpleNotch" cannot be opened*.
+> Click **Done**, open **System Settings › Privacy & Security**, scroll down and click **Open Anyway** next to SimpleNotch. You only do this once.
+>
+> Or run this in Terminal: `xattr -dr com.apple.quarantine /Applications/SimpleNotch.app`
+
+SimpleNotch updates itself through Sparkle. Older versions are on the [Releases](https://github.com/Nurikexe/SimpleNotch/releases) page.
 
 ## Building from source
 
@@ -131,7 +136,7 @@ Select the `SimpleNotch` scheme and run it. You need Xcode 26 or newer. Swift pa
 4. Builds a drag-to-Applications `SimpleNotch.dmg`.
 5. Writes the Sparkle `appcast.xml`.
 
-`scripts/release.sh --publish` also creates the GitHub release `v<version>` with both files attached. The download link and the app's update feed always point at the latest release.
+`--no-notarize` skips step 3. `scripts/release.sh --publish` also creates the GitHub release `v<version>` with both files attached. The download link and the app's update feed always point at the latest release.
 
 One-time setup:
 
