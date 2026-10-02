@@ -40,21 +40,25 @@ final class ShelfActionBarState: ObservableObject {
     private func installMonitor() {
         guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) { [weak self] event in
-            MainActor.assumeIsolated {
-                guard let self else { return event }
-                if event.type == .keyDown {
-                    guard event.keyCode == 53 else { return event } // Esc
+            let isEscape = event.type == .keyDown && event.keyCode == 53
+            if event.type == .keyDown && !isEscape { return event }
+            let location = event.locationInWindow
+            let contentHeight = event.window?.contentView?.bounds.height
+            let consumed = MainActor.assumeIsolated { () -> Bool in
+                guard let self else { return false }
+                if isEscape {
                     self.dismiss()
-                    return nil
+                    return true
                 }
-                if let contentHeight = event.window?.contentView?.bounds.height {
-                    let p = event.locationInWindow
-                    if self.barFrame.contains(CGPoint(x: p.x, y: contentHeight - p.y)) { return event }
+                if let contentHeight,
+                   self.barFrame.contains(CGPoint(x: location.x, y: contentHeight - location.y)) {
+                    return false
                 }
                 // A right-click on an item re-shows the bar there right after.
                 self.dismiss()
-                return event
+                return false
             }
+            return consumed ? nil : event
         }
     }
 }

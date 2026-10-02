@@ -129,6 +129,6 @@ struct OnboardingView: View {
     }
     
     func requestAccessibilityPermission() async {
-        await AccessibilityPermission.shared.ensureAccessibilityAuthorization(promptIfNeeded: true)
+        _ = await AccessibilityPermission.shared.ensureAccessibilityAuthorization(promptIfNeeded: true)
     }
 }

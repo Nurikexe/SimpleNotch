@@ -156,7 +156,8 @@ struct MusicControlsView: View {
     }
 
     private var musicSlider: some View {
-        TimelineView(.animation(minimumInterval: musicManager.playbackRate > 0 ? 0.1 : nil)) { timeline in
+        // Redraws only while playing; a paused track has nothing to move.
+        TimelineView(.animation(minimumInterval: 0.1, paused: !musicManager.isPlaying || musicManager.playbackRate == 0)) { timeline in
             MusicSliderView(
                 sliderValue: $sliderValue,
                 duration: $musicManager.songDuration,
