@@ -62,7 +62,11 @@ struct TranslateSettingsView: View {
         .accentColor(.effectiveAccent)
         .navigationTitle("Translate")
         .languagePackDownloader($downloadConfig)
-        .task { await manager.refreshPackStatus() }
+        .task {
+            await manager.refreshPackStatus()
+            startRequestedDownload()
+        }
+        .onChange(of: manager.downloadRequested) { _, _ in startRequestedDownload() }
         .onReceive(NotificationCenter.default.publisher(for: .accessibilityAuthorizationChanged)) { _ in
             accessibilityTrusted = AccessibilityPermission.shared.isTrusted
         }
@@ -92,6 +96,13 @@ struct TranslateSettingsView: View {
         .labelStyle(.titleAndIcon)
         .contentTransition(.symbolEffect(.replace))
         .animation(Motion.respecting(Motion.snappy), value: manager.packStatus)
+    }
+
+    /// The notch's Download button sends the user here to download.
+    private func startRequestedDownload() {
+        guard manager.downloadRequested else { return }
+        manager.downloadRequested = false
+        if manager.packStatus != .installed { requestDownload() }
     }
 
     private func requestDownload() {

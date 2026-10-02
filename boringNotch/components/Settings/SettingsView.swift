@@ -80,6 +80,9 @@ struct SettingsView: View {
             .tint(.effectiveAccent)
             .toolbar(removing: .sidebarToggle)
             .navigationSplitViewColumnWidth(200)
+            .onReceive(NotificationCenter.default.publisher(for: .openSettingsPage)) { note in
+                if let page = note.object as? String { selectedTab = page }
+            }
         } detail: {
             Group {
                 switch selectedTab {

@@ -18,7 +18,6 @@ struct TranslateTabView: View {
 
     @FocusState private var inputFocused: Bool
     @State private var pinnedForEditing = false
-    @State private var downloadConfig: TranslationSession.Configuration?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -33,7 +32,6 @@ struct TranslateTabView: View {
         .translationTask(manager.configuration) { session in
             await manager.run(session)
         }
-        .languagePackDownloader($downloadConfig)
         .onAppear {
             Task { await manager.refreshPackStatus() }
         }
@@ -146,14 +144,12 @@ struct TranslateTabView: View {
     }
 
     private func requestDownload() {
-        // The framework's download sheet needs a key window to attach to.
-        vm.pinnedOpen = true
-        vm.beginKeyboardSession()
-        if var config = downloadConfig {
-            config.invalidate()
-            downloadConfig = config
-        } else {
-            downloadConfig = .init(source: TranslateLanguage.english.language, target: TranslateLanguage.russian.language)
+        // The framework's download sheet must attach to a regular window; the
+        // notch panel isn't one. Hand off to the Translate page in Settings.
+        manager.downloadRequested = true
+        withMotion(Motion.notchClose) { vm.close() }
+        DispatchQueue.main.async {
+            SettingsWindowController.shared.showWindow(page: "Translate")
         }
     }
 }

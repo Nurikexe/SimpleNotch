@@ -86,6 +86,9 @@ final class TranslateManager: ObservableObject, NotchFeature {
     @Published private(set) var isTranslating = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var packStatus: PackStatus = .unknown
+    /// Set by the notch's Download button; the Settings page starts the download.
+    @Published var downloadRequested = false
+
     /// Drives `.translationTask` in the tab. Replaced when the direction
     /// changes, invalidated to translate again in the same direction.
     @Published private(set) var configuration: TranslationSession.Configuration?

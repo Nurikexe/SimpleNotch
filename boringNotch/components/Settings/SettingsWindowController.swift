@@ -66,6 +66,14 @@ class SettingsWindowController: NSWindowController {
         window.delegate = self
     }
     
+    /// Opens Settings on a given sidebar page ("Translate", "Focus", ...).
+    func showWindow(page: String) {
+        showWindow()
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .openSettingsPage, object: page)
+        }
+    }
+
     func showWindow() {
         // Set app to regular mode first
         NSApp.setActivationPolicy(.regular)
@@ -122,4 +130,8 @@ extension SettingsWindowController: NSWindowDelegate {
     func windowDidResignKey(_ notification: Notification) {
     }
     
+}
+
+extension Notification.Name {
+    static let openSettingsPage = Notification.Name("SimpleNotch.openSettingsPage")
 }

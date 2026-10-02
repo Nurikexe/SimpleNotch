@@ -12,6 +12,7 @@
 import AppKit
 import Defaults
 import KeyboardShortcuts
+import os
 import SwiftUI
 
 /// Which tile of the Snap grid the pointer is over. Kept apart from the
@@ -45,7 +46,10 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
 
     // The current mouse-down candidate.
     private var draggedWindow: SnapWindow?
-    private var dragStartPosition: CGPoint?
+    private var draggedWindowID: CGWindowID?
+    private var dragStartBounds: CGRect?
+    private var dragStartPointer: CGPoint?
+    private let log = Logger(subsystem: "io.github.nurikexe.SimpleNotch", category: "Snap")
     private var lastMoveCheck: CFTimeInterval = 0
 
     // Tile frames reported by the visible SnapGridView, in its window's space.
@@ -59,12 +63,6 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
     func start() {
         guard !isRunning else { return }
         isRunning = true
-
-        // Snapping can't see other apps' windows without Accessibility; ask
-        // up front rather than silently doing nothing on the first drag.
-        if !AccessibilityPermission.shared.isTrusted {
-            AccessibilityPermission.shared.requestAccessibilityAuthorization()
-        }
 
         let handlers: [(NSEvent.EventTypeMask, @MainActor (WindowSnapManager) -> Void)] = [
             (.leftMouseDown, { $0.mouseDown() }),
@@ -120,17 +118,23 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
 
     private func mouseDown() {
         endDrag()
-        guard AccessibilityPermission.shared.isTrusted,
-              let window = SnapWindow.at(appKitPoint: NSEvent.mouseLocation),
-              let position = window.position
-        else { return }
-        draggedWindow = window
-        dragStartPosition = position
+        // The window list needs no permission, so the drag is noticed (and the
+        // grid shown) even before Accessibility is granted.
+        let pointer = NSEvent.mouseLocation
+        guard let hit = Self.windowUnder(appKitPoint: pointer) else { return }
+        draggedWindowID = hit.id
+        dragStartBounds = hit.bounds
+        dragStartPointer = pointer
         lastMoveCheck = 0
+        // The Accessibility handle is needed only to move the window on drop.
+        if AccessibilityPermission.shared.isTrusted {
+            draggedWindow = SnapWindow.at(appKitPoint: pointer)
+        }
+        log.debug("mouseDown on window \(hit.id) owner \(hit.owner, privacy: .public), AX \(self.draggedWindow != nil)")
     }
 
     private func mouseDragged() {
-        guard let window = draggedWindow else { return }
+        guard let windowID = draggedWindowID else { return }
 
         if !isWindowDragActive {
             // Until the window itself moves this may be a text selection or a
@@ -138,9 +142,12 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
             let now = CACurrentMediaTime()
             guard now - lastMoveCheck >= moveCheckInterval else { return }
             lastMoveCheck = now
-            guard let start = dragStartPosition, let position = window.position,
-                  abs(position.x - start.x) > 1 || abs(position.y - start.y) > 1
+            guard let start = dragStartBounds,
+                  let bounds = Self.bounds(ofWindow: windowID),
+                  bounds.size == start.size,
+                  abs(bounds.minX - start.minX) > 2 || abs(bounds.minY - start.minY) > 2
             else { return }
+            log.debug("window drag detected")
             isWindowDragActive = true
         }
 
@@ -150,18 +157,69 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
     private func mouseUp() {
         defer { endDrag() }
         guard isWindowDragActive,
-              let window = draggedWindow,
               let layout = hover.layout,
               let screenID = gridScreenID,
               let screen = NSScreen.screen(withUUID: screenID)
         else { return }
+        guard AccessibilityPermission.shared.isTrusted else {
+            log.debug("drop on \(layout.title, privacy: .public) but Accessibility is not granted")
+            AccessibilityPermission.shared.requestAccessibilityAuthorization()
+            return
+        }
+        // Granted mid-drag, or AX missed at mouse-down: find the window by
+        // where its title bar is now.
+        let window = draggedWindow ?? draggedWindowID.flatMap(Self.bounds(ofWindow:)).flatMap { bounds in
+            SnapWindow.at(appKitPoint: SnapCoordinates.flip(CGPoint(x: bounds.midX, y: bounds.minY + 10)))
+        }
+        guard let window else {
+            log.debug("drop: no AX window to move")
+            return
+        }
         snap(window, to: layout, on: screen)
+    }
+
+    // MARK: Window list (no permission needed)
+
+    private struct WindowHit {
+        let id: CGWindowID
+        let bounds: CGRect
+        let owner: String
+    }
+
+    /// The topmost normal window of another app under `point`, from the
+    /// window server's list. Bounds are top-left-origin global coordinates.
+    private static func windowUnder(appKitPoint point: CGPoint) -> WindowHit? {
+        let cgPoint = SnapCoordinates.flip(point)
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return nil }
+        let ownPID = getpid()
+        for info in list {
+            guard let pid = info[kCGWindowOwnerPID as String] as? pid_t,
+                  let layer = info[kCGWindowLayer as String] as? Int,
+                  let boundsDict = info[kCGWindowBounds as String] as? NSDictionary,
+                  let bounds = CGRect(dictionaryRepresentation: boundsDict),
+                  let id = info[kCGWindowNumber as String] as? CGWindowID,
+                  bounds.contains(cgPoint)
+            else { continue }
+            // Front-to-back: the first window under the point is the one hit.
+            guard pid != ownPID, layer == 0 else { return nil }
+            return WindowHit(id: id, bounds: bounds, owner: info[kCGWindowOwnerName as String] as? String ?? "?")
+        }
+        return nil
+    }
+
+    private static func bounds(ofWindow id: CGWindowID) -> CGRect? {
+        guard let list = CGWindowListCopyWindowInfo([.optionIncludingWindow], id) as? [[String: Any]],
+              let dict = list.first?[kCGWindowBounds as String] as? NSDictionary
+        else { return nil }
+        return CGRect(dictionaryRepresentation: dict)
     }
 
     private func endDrag() {
         hideGrid()
         draggedWindow = nil
-        dragStartPosition = nil
+        draggedWindowID = nil
+        dragStartBounds = nil
+        dragStartPointer = nil
         if isWindowDragActive { isWindowDragActive = false }
     }
 
@@ -185,6 +243,7 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
     }
 
     private func showGrid(on screen: NSScreen, id screenID: String) {
+        log.debug("showing Snap grid")
         hideGrid()
         guard NotchRouter.shared.viewModel(on: screen) != nil else { return }
         tileFrames.removeAll()
