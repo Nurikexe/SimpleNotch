@@ -42,8 +42,26 @@ struct SettingsView: View {
 //                NavigationLink(value: "Downloads") {
 //                    Label("Downloads", systemImage: "square.and.arrow.down")
 //                }
+                NavigationLink(value: "Features") {
+                    Label("Features", systemImage: "square.grid.2x2")
+                }
                 NavigationLink(value: "Shelf") {
                     Label("Shelf", systemImage: "books.vertical")
+                }
+                NavigationLink(value: "Clipboard") {
+                    Label("Clipboard", systemImage: "doc.on.clipboard")
+                }
+                NavigationLink(value: "Focus") {
+                    Label("Focus", systemImage: "timer")
+                }
+                NavigationLink(value: "Translate") {
+                    Label("Translate", systemImage: "character.bubble")
+                }
+                NavigationLink(value: "Birthdays") {
+                    Label("Birthdays", systemImage: "gift")
+                }
+                NavigationLink(value: "Window Snapping") {
+                    Label("Window Snapping", systemImage: "rectangle.split.2x1")
                 }
                 NavigationLink(value: "Shortcuts") {
                     Label("Shortcuts", systemImage: "keyboard")
@@ -73,8 +91,20 @@ struct SettingsView: View {
                     Media()
                 case "Calendar":
                     CalendarSettings()
+                case "Features":
+                    FeaturesSettingsView()
                 case "Shelf":
                     Shelf()
+                case "Clipboard":
+                    ClipboardSettingsView()
+                case "Focus":
+                    FocusSettingsView()
+                case "Translate":
+                    TranslateSettingsView()
+                case "Birthdays":
+                    BirthdaysSettingsView()
+                case "Window Snapping":
+                    SnapSettingsView()
                 case "Shortcuts":
                     Shortcuts()
                 case "Extensions":
@@ -1460,6 +1490,16 @@ struct Shortcuts: View {
             }
             Section {
                 KeyboardShortcuts.Recorder("Toggle Notch Open:", name: .toggleNotchOpen)
+            }
+            Section {
+                KeyboardShortcuts.Recorder("Open clipboard:", name: .openClipboard)
+                KeyboardShortcuts.Recorder("Translate selection:", name: .translateSelection)
+            } header: {
+                Text("Tabs")
+            } footer: {
+                Text("Window snapping shortcuts are in Window Snapping.")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
             }
         }
         .accentColor(.effectiveAccent)

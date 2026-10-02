@@ -297,6 +297,7 @@ final class TranslateManager: ObservableObject, NotchFeature {
         let pasteboard = NSPasteboard.general
         let saved = PasteboardSnapshot(of: pasteboard)
         let before = pasteboard.changeCount
+        ClipboardManager.shared.ignoreChanges(for: 1.0)
         SelectionCopier.postCopy()
 
         Task { @MainActor [weak self] in

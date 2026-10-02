@@ -79,10 +79,19 @@ final class ClipboardManager: ObservableObject, NotchFeature {
 
     // MARK: - Capture
 
+    private var ignoreUntil = Date.distantPast
+
+    /// Pasteboard changes in the next `seconds` are not Clips: another feature
+    /// (Translate's ⌃⌥T) is borrowing the pasteboard and will restore it.
+    func ignoreChanges(for seconds: TimeInterval) {
+        ignoreUntil = Date.now.addingTimeInterval(seconds)
+    }
+
     private func poll() {
         let changeCount = pasteboard.changeCount
         guard changeCount != lastChangeCount else { return }
         lastChangeCount = changeCount
+        guard Date.now >= ignoreUntil else { return }
         capture()
     }
 
