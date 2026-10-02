@@ -22,7 +22,6 @@ struct WheelPicker: View {
     @EnvironmentObject var vm: BoringViewModel
     @Binding var selectedDate: Date
     @State private var scrollPosition: Int?
-    @State private var haptics: Bool = false
     @State private var byClick: Bool = false
     let config: Config
 
@@ -47,9 +46,6 @@ struct WheelPicker: View {
                             withAnimation {
                                 scrollPosition = index
                             }
-                            if Defaults[.enableHaptics] {
-                                haptics.toggle()
-                            }
                         }
                     }
                 }
@@ -61,7 +57,6 @@ struct WheelPicker: View {
         .scrollPosition(id: $scrollPosition, anchor: .center)
         .scrollTargetBehavior(.viewAligned)  // Ensures scroll view snaps the centered view
         .safeAreaPadding(.horizontal)
-        .sensoryFeedback(.alignment, trigger: haptics)
         .onChange(of: scrollPosition) { oldValue, newValue in
             if !byClick {
                 handleScrollChange(newValue: newValue, config: config)
@@ -132,9 +127,6 @@ struct WheelPicker: View {
         let date = dateForItemIndex(index: newIndex, spacerNum: spacerNum)
         if !Calendar.current.isDate(date, inSameDayAs: selectedDate) {
             selectedDate = date
-            if Defaults[.enableHaptics] {
-                haptics.toggle()
-            }
         }
     }
 

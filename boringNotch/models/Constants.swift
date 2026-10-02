@@ -77,7 +77,6 @@ extension Defaults.Keys {
     
     // MARK: Behavior
     static let minimumHoverDuration = Key<TimeInterval>("minimumHoverDuration", default: 0.3)
-    static let enableHaptics = Key<Bool>("enableHaptics", default: true)
     static let openNotchOnHover = Key<Bool>("openNotchOnHover", default: true)
     static let extendHoverArea = Key<Bool>("extendHoverArea", default: false)
     static let notchHeightMode = Key<WindowHeightMode>(
@@ -97,8 +96,6 @@ extension Defaults.Keys {
     // MARK: Appearance
     static let showEmojis = Key<Bool>("showEmojis", default: false)
     //static let alwaysShowTabs = Key<Bool>("alwaysShowTabs", default: true)
-    static let showMirror = Key<Bool>("showMirror", default: false)
-    static let mirrorShape = Key<MirrorShapeEnum>("mirrorShape", default: MirrorShapeEnum.rectangle)
     static let settingsIconInNotch = Key<Bool>("settingsIconInNotch", default: true)
     static let lightingEffect = Key<Bool>("lightingEffect", default: true)
     static let enableShadow = Key<Bool>("enableShadow", default: true)
@@ -106,7 +103,7 @@ extension Defaults.Keys {
 
     static let showNotHumanFace = Key<Bool>("showNotHumanFace", default: false)
     static let tileShowLabels = Key<Bool>("tileShowLabels", default: false)
-    static let showCalendar = Key<Bool>("showCalendar", default: false)
+    static let showCalendar = Key<Bool>("showCalendar", default: true)
     static let hideCompletedReminders = Key<Bool>("hideCompletedReminders", default: true)
     static let sliderColor = Key<SliderColorEnum>(
         "sliderUseAlbumArtColor",
@@ -128,7 +125,6 @@ extension Defaults.Keys {
     static let sneakPeekStyles = Key<SneakPeekStyle>("sneakPeekStyles", default: .standard)
     static let waitInterval = Key<Double>("waitInterval", default: 3)
     static let showShuffleAndRepeat = Key<Bool>("showShuffleAndRepeat", default: false)
-    static let enableLyrics = Key<Bool>("enableLyrics", default: false)
     static let musicControlSlots = Key<[MusicControlButton]>(
         "musicControlSlots",
         default: MusicControlButton.defaultLayout
@@ -139,26 +135,11 @@ extension Defaults.Keys {
     )
     
     // MARK: Battery
-    static let showPowerStatusNotifications = Key<Bool>("showPowerStatusNotifications", default: true)
-    static let showBatteryIndicator = Key<Bool>("showBatteryIndicator", default: true)
-    static let showBatteryPercentage = Key<Bool>("showBatteryPercentage", default: true)
-    static let showPowerStatusIcons = Key<Bool>("showPowerStatusIcons", default: true)
     
     // MARK: Downloads
     static let enableDownloadListener = Key<Bool>("enableDownloadListener", default: true)
-    static let enableSafariDownloads = Key<Bool>("enableSafariDownloads", default: true)
-    static let selectedDownloadIndicatorStyle = Key<DownloadIndicatorStyle>("selectedDownloadIndicatorStyle", default: DownloadIndicatorStyle.progress)
-    static let selectedDownloadIconStyle = Key<DownloadIconStyle>("selectedDownloadIconStyle", default: DownloadIconStyle.onlyAppIcon)
     
     // MARK: HUD
-    static let hudReplacement = Key<Bool>("hudReplacement", default: false)
-    static let inlineHUD = Key<Bool>("inlineHUD", default: false)
-    static let enableGradient = Key<Bool>("enableGradient", default: false)
-    static let systemEventIndicatorShadow = Key<Bool>("systemEventIndicatorShadow", default: false)
-    static let systemEventIndicatorUseAccent = Key<Bool>("systemEventIndicatorUseAccent", default: false)
-    static let showOpenNotchHUD = Key<Bool>("showOpenNotchHUD", default: true)
-    static let showOpenNotchHUDPercentage = Key<Bool>("showOpenNotchHUDPercentage", default: true)
-    static let showClosedNotchHUDPercentage = Key<Bool>("showClosedNotchHUDPercentage", default: false)
     // Option key modifier behaviour for media keys
     static let optionKeyAction = Key<OptionKeyAction>("optionKeyAction", default: OptionKeyAction.openSettings)
     

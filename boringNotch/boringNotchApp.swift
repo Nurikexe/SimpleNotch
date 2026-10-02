@@ -29,7 +29,7 @@ struct DynamicNotchApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("boring.notch", systemImage: "sparkle", isInserted: $showMenuBarIcon) {
+        MenuBarExtra("SimpleNotch", systemImage: "sparkle", isInserted: $showMenuBarIcon) {
             Button("Settings") {
                 DispatchQueue.main.async {
                     SettingsWindowController.shared.showWindow()
@@ -38,7 +38,7 @@ struct DynamicNotchApp: App {
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
             CheckForUpdatesView(updater: updaterController.updater)
             Divider()
-            Button("Restart Boring Notch") {
+            Button("Restart SimpleNotch") {
                 ApplicationRelauncher.restart()
             }
             Button("Quit", role: .destructive) {
@@ -85,7 +85,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         MusicManager.shared.destroy()
         cleanupDragDetectors()
         cleanupWindows()
-        XPCHelperClient.shared.stopMonitoringAccessibilityAuthorization()
+        AccessibilityPermission.shared.stopMonitoringAccessibilityAuthorization()
     }
 
     @MainActor

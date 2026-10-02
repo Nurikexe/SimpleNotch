@@ -16,20 +16,14 @@ import SwiftUIIntrospect
 @MainActor
 struct ContentView: View {
     @EnvironmentObject var vm: BoringViewModel
-    @ObservedObject var webcamManager = WebcamManager.shared
 
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @ObservedObject var musicManager = MusicManager.shared
-    @ObservedObject var batteryModel = BatteryStatusViewModel.shared
-    @ObservedObject var brightnessManager = BrightnessManager.shared
-    @ObservedObject var volumeManager = VolumeManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
 
     @State private var gestureProgress: CGFloat = .zero
-
-    @State private var haptics: Bool = false
 
     @Namespace var albumArtNamespace
 
@@ -61,11 +55,7 @@ struct ContentView: View {
     private var computedChinWidth: CGFloat {
         var chinWidth: CGFloat = vm.closedNotchSize.width
 
-        if coordinator.expandingView.type == .battery && coordinator.expandingView.show
-            && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
-        {
-            chinWidth = 640
-        } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
+        if (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
             && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle)
             && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
         {
@@ -147,13 +137,13 @@ struct ContentView: View {
                             }
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .sharingDidFinish)) { _ in
-                        if vm.notchState == .open && !isHovering && !vm.isBatteryPopoverActive {
+                        if vm.notchState == .open && !isHovering {
                             hoverTask?.cancel()
                             hoverTask = Task {
                                 try? await Task.sleep(for: .milliseconds(100))
                                 guard !Task.isCancelled else { return }
                                 await MainActor.run {
-                                    if self.vm.notchState == .open && !self.isHovering && !self.vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose {
+                                    if self.vm.notchState == .open && !self.isHovering && !SharingStateManager.shared.preventNotchClose {
                                         self.vm.close()
                                     }
                                 }
@@ -167,21 +157,6 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .onChange(of: vm.isBatteryPopoverActive) {
-                        if !vm.isBatteryPopoverActive && !isHovering && vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
-                            hoverTask?.cancel()
-                            hoverTask = Task {
-                                try? await Task.sleep(for: .milliseconds(100))
-                                guard !Task.isCancelled else { return }
-                                await MainActor.run {
-                                    if !self.vm.isBatteryPopoverActive && !self.isHovering && self.vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
-                                        self.vm.close()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .sensoryFeedback(.alignment, trigger: haptics)
                     .contextMenu {
                         Button("Settings") {
                             DispatchQueue.main.async {
@@ -257,37 +232,7 @@ struct ContentView: View {
                     .padding(.top, 40)
                     Spacer()
                 } else {
-                    if coordinator.expandingView.type == .battery && coordinator.expandingView.show
-                        && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
-                    {
-                        HStack(spacing: 0) {
-                            HStack {
-                                Text(batteryModel.statusText)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.white)
-                            }
-
-                            Rectangle()
-                                .fill(.black)
-                                .frame(width: vm.closedNotchSize.width + 10)
-
-                            HStack {
-                                BoringBatteryView(
-                                    batteryWidth: 30,
-                                    isCharging: batteryModel.isCharging,
-                                    isInLowPowerMode: batteryModel.isInLowPowerMode,
-                                    isPluggedIn: batteryModel.isPluggedIn,
-                                    levelBattery: batteryModel.levelBattery,
-                                    isForNotification: true
-                                )
-                            }
-                            .frame(width: 76, alignment: .trailing)
-                        }
-                        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
-                      } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && vm.notchState == .closed {
-                          InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
-                              .transition(.opacity)
-                      } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
+                      if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                           MusicLiveActivity()
                               .frame(alignment: .center)
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
@@ -301,28 +246,7 @@ struct ContentView: View {
                        }
 
                       if coordinator.sneakPeek.show {
-                          if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && !Defaults[.inlineHUD] && vm.notchState == .closed {
-                              SystemEventIndicatorModifier(
-                                  eventType: $coordinator.sneakPeek.type,
-                                  value: $coordinator.sneakPeek.value,
-                                  icon: $coordinator.sneakPeek.icon,
-                                  sendEventBack: { newVal in
-                                      switch coordinator.sneakPeek.type {
-                                      case .volume:
-                                          VolumeManager.shared.setAbsolute(Float32(newVal))
-                                      case .brightness:
-                                          BrightnessManager.shared.setAbsolute(value: Float32(newVal))
-                                      default:
-                                          break
-                                      }
-                                  }
-                              )
-                              .padding(.bottom, 10)
-                              .padding(.leading, 4)
-                              .padding(.trailing, 8)
-                          }
-                          // Old sneak peek music
-                          else if coordinator.sneakPeek.type == .music {
+                          if coordinator.sneakPeek.type == .music {
                               if vm.notchState == .closed && !vm.hideOnClosed && Defaults[.sneakPeekStyles] == .standard {
                                   HStack(alignment: .center) {
                                       Image(systemName: "music.note")
@@ -519,9 +443,6 @@ struct ContentView: View {
                 isHovering = true
             }
             
-            if vm.notchState == .closed && Defaults[.enableHaptics] {
-                haptics.toggle()
-            }
             
             guard vm.notchState == .closed,
                   !coordinator.sneakPeek.show,
@@ -549,7 +470,7 @@ struct ContentView: View {
                         self.isHovering = false
                     }
                     
-                    if self.vm.notchState == .open && !self.vm.isBatteryPopoverActive && !SharingStateManager.shared.preventNotchClose {
+                    if self.vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
                         self.vm.close()
                     }
                 }
@@ -572,9 +493,6 @@ struct ContentView: View {
         }
 
         if translation > Defaults[.gestureSensitivity] {
-            if Defaults[.enableHaptics] {
-                haptics.toggle()
-            }
             withAnimation(animationSpring) {
                 gestureProgress = .zero
             }
@@ -604,9 +522,6 @@ struct ContentView: View {
                 vm.close()
             }
 
-            if Defaults[.enableHaptics] {
-                haptics.toggle()
-            }
         }
     }
 }

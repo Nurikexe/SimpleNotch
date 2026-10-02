@@ -39,12 +39,6 @@ struct SettingsView: View {
                 NavigationLink(value: "Calendar") {
                     Label("Calendar", systemImage: "calendar")
                 }
-                NavigationLink(value: "HUD") {
-                    Label("HUDs", systemImage: "dial.medium.fill")
-                }
-                NavigationLink(value: "Battery") {
-                    Label("Battery", systemImage: "battery.100.bolt")
-                }
 //                NavigationLink(value: "Downloads") {
 //                    Label("Downloads", systemImage: "square.and.arrow.down")
 //                }
@@ -79,10 +73,6 @@ struct SettingsView: View {
                     Media()
                 case "Calendar":
                     CalendarSettings()
-                case "HUD":
-                    HUD()
-                case "Battery":
-                    Charge()
                 case "Shelf":
                     Shelf()
                 case "Shortcuts":
@@ -135,7 +125,6 @@ struct GeneralSettings: View {
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject var coordinator = BoringViewCoordinator.shared
 
-    @Default(.mirrorShape) var mirrorShape
     @Default(.showEmojis) var showEmojis
     @Default(.gestureSensitivity) var gestureSensitivity
     @Default(.minimumHoverDuration) var minimumHoverDuration
@@ -324,9 +313,6 @@ struct GeneralSettings: View {
             Defaults.Toggle(key: .openNotchOnHover) {
                 Text("Open notch on hover")
             }
-            Defaults.Toggle(key: .enableHaptics) {
-                    Text("Enable haptic feedback")
-            }
             Toggle("Remember last tab", isOn: $coordinator.openLastTabByDefault)
             if openNotchOnHover {
                 Slider(value: $minimumHoverDuration, in: 0...1, step: 0.1) {
@@ -348,249 +334,6 @@ struct GeneralSettings: View {
     }
 }
 
-struct Charge: View {
-    var body: some View {
-        Form {
-            Section {
-                Defaults.Toggle(key: .showBatteryIndicator) {
-                    Text("Show battery indicator")
-                }
-                Defaults.Toggle(key: .showPowerStatusNotifications) {
-                    Text("Show power status notifications")
-                }
-            } header: {
-                Text("General")
-            }
-            Section {
-                Defaults.Toggle(key: .showBatteryPercentage) {
-                    Text("Show battery percentage")
-                }
-                Defaults.Toggle(key: .showPowerStatusIcons) {
-                    Text("Show power status icons")
-                }
-            } header: {
-                Text("Battery Information")
-            }
-        }
-        .onAppear {
-            Task { @MainActor in
-                await XPCHelperClient.shared.isAccessibilityAuthorized()
-            }
-        }
-        .accentColor(.effectiveAccent)
-        .navigationTitle("Battery")
-    }
-}
-
-//struct Downloads: View {
-//    @Default(.selectedDownloadIndicatorStyle) var selectedDownloadIndicatorStyle
-//    @Default(.selectedDownloadIconStyle) var selectedDownloadIconStyle
-//    var body: some View {
-//        Form {
-//            warningBadge("We don't support downloads yet", "It will be supported later on.")
-//            Section {
-//                Defaults.Toggle(key: .enableDownloadListener) {
-//                    Text("Show download progress")
-//                }
-//                    .disabled(true)
-//                Defaults.Toggle(key: .enableSafariDownloads) {
-//                    Text("Enable Safari Downloads")
-//                }
-//                    .disabled(!Defaults[.enableDownloadListener])
-//                Picker("Download indicator style", selection: $selectedDownloadIndicatorStyle) {
-//                    Text("Progress bar")
-//                        .tag(DownloadIndicatorStyle.progress)
-//                    Text("Percentage")
-//                        .tag(DownloadIndicatorStyle.percentage)
-//                }
-//                Picker("Download icon style", selection: $selectedDownloadIconStyle) {
-//                    Text("Only app icon")
-//                        .tag(DownloadIconStyle.onlyAppIcon)
-//                    Text("Only download icon")
-//                        .tag(DownloadIconStyle.onlyIcon)
-//                    Text("Both")
-//                        .tag(DownloadIconStyle.iconAndAppIcon)
-//                }
-//
-//            } header: {
-//                HStack {
-//                    Text("Download indicators")
-//                    comingSoonTag()
-//                }
-//            }
-//            Section {
-//                List {
-//                    ForEach([].indices, id: \.self) { index in
-//                        Text("\(index)")
-//                    }
-//                }
-//                .frame(minHeight: 96)
-//                .overlay {
-//                    if true {
-//                        Text("No excluded apps")
-//                            .foregroundStyle(Color(.secondaryLabelColor))
-//                    }
-//                }
-//                .actionBar(padding: 0) {
-//                    Group {
-//                        Button {
-//                        } label: {
-//                            Image(systemName: "plus")
-//                                .frame(width: 25, height: 16, alignment: .center)
-//                                .contentShape(Rectangle())
-//                                .foregroundStyle(.secondary)
-//                        }
-//
-//                        Divider()
-//                        Button {
-//                        } label: {
-//                            Image(systemName: "minus")
-//                                .frame(width: 20, height: 16, alignment: .center)
-//                                .contentShape(Rectangle())
-//                                .foregroundStyle(.secondary)
-//                        }
-//                    }
-//                }
-//            } header: {
-//                HStack(spacing: 4) {
-//                    Text("Exclude apps")
-//                    comingSoonTag()
-//                }
-//            }
-//        }
-//        .navigationTitle("Downloads")
-//    }
-//}
-
-struct HUD: View {
-    @EnvironmentObject var vm: BoringViewModel
-    @Default(.inlineHUD) var inlineHUD
-    @Default(.enableGradient) var enableGradient
-    @Default(.optionKeyAction) var optionKeyAction
-    @Default(.hudReplacement) var hudReplacement
-    @ObservedObject var coordinator = BoringViewCoordinator.shared
-    @State private var accessibilityAuthorized = false
-    
-    var body: some View {
-        Form {
-            Section {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Replace system HUD")
-                            .font(.headline)
-                        Text("Replaces the standard macOS volume, display brightness, and keyboard brightness HUDs with a custom design.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 40)
-                    Defaults.Toggle("", key: .hudReplacement)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.large)
-                    .disabled(!accessibilityAuthorized)
-                }
-                
-                if !accessibilityAuthorized {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Accessibility access is required to replace the system HUD.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-
-                        HStack(spacing: 12) {
-                            Button("Request Accessibility") {
-                                XPCHelperClient.shared.requestAccessibilityAuthorization()
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                    }
-                    .padding(.top, 6)
-                }
-            }
-            
-            Section {
-                Picker("Option key behaviour", selection: $optionKeyAction) {
-                    ForEach(OptionKeyAction.allCases) { opt in
-                        Text(opt.rawValue).tag(opt)
-                    }
-                }
-                
-                Picker("Progress bar style", selection: $enableGradient) {
-                    Text("Hierarchical")
-                        .tag(false)
-                    Text("Gradient")
-                        .tag(true)
-                }
-                Defaults.Toggle(key: .systemEventIndicatorShadow) {
-                    Text("Enable glowing effect")
-                }
-                Defaults.Toggle(key: .systemEventIndicatorUseAccent) {
-                    Text("Tint progress bar with accent color")
-                }
-            } header: {
-                Text("General")
-            }
-            .disabled(!hudReplacement)
-            
-            Section {
-                Defaults.Toggle(key: .showOpenNotchHUD) {
-                    Text("Show HUD in open notch")
-                }
-                Defaults.Toggle(key: .showOpenNotchHUDPercentage) {
-                    Text("Show percentage")
-                }
-                .disabled(!Defaults[.showOpenNotchHUD])
-            } header: {
-                HStack {
-                    Text("Open Notch")
-                    customBadge(text: "Beta")
-                }
-            }
-            .disabled(!hudReplacement)
-            
-            Section {
-                Picker("HUD style", selection: $inlineHUD) {
-                    Text("Default")
-                        .tag(false)
-                    Text("Inline")
-                        .tag(true)
-                }
-                .onChange(of: Defaults[.inlineHUD]) {
-                    if Defaults[.inlineHUD] {
-                        withAnimation {
-                            Defaults[.systemEventIndicatorShadow] = false
-                            Defaults[.enableGradient] = false
-                        }
-                    }
-                }
-                
-                Defaults.Toggle(key: .showClosedNotchHUDPercentage) {
-                    Text("Show percentage")
-                }
-            } header: {
-                Text("Closed Notch")
-            }
-            .disabled(!Defaults[.hudReplacement])
-        }
-        .accentColor(.effectiveAccent)
-        .navigationTitle("HUDs")
-        .task {
-            accessibilityAuthorized = await XPCHelperClient.shared.isAccessibilityAuthorized()
-        }
-        .onAppear {
-            XPCHelperClient.shared.startMonitoringAccessibilityAuthorization()
-        }
-        .onDisappear {
-            XPCHelperClient.shared.stopMonitoringAccessibilityAuthorization()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .accessibilityAuthorizationChanged)) { notification in
-            if let granted = notification.userInfo?["granted"] as? Bool {
-                accessibilityAuthorized = granted
-            }
-        }
-    }
-}
-
 struct Media: View {
     @Default(.waitInterval) var waitInterval
     @Default(.mediaController) var mediaController
@@ -599,7 +342,6 @@ struct Media: View {
     @Default(.enableSneakPeek) private var enableSneakPeek
     @Default(.sneakPeekStyles) var sneakPeekStyles
 
-    @Default(.enableLyrics) var enableLyrics
 
     var body: some View {
         Form {
@@ -679,12 +421,6 @@ struct Media: View {
             
             Section {
                 MusicSlotConfigurationView()
-                Defaults.Toggle(key: .enableLyrics) {
-                    HStack {
-                        Text("Show lyrics below artist name")
-                        customBadge(text: "Beta")
-                    }
-                }
             } header: {
                 Text("Media controls")
             }  footer: {
@@ -1159,7 +895,6 @@ struct Shelf: View {
 
 struct Appearance: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
-    @Default(.mirrorShape) var mirrorShape
     @Default(.sliderColor) var sliderColor
     @Default(.useMusicVisualizer) var useMusicVisualizer
     @Default(.customVisualizers) var customVisualizers
@@ -1377,16 +1112,6 @@ struct Appearance: View {
             }
 
             Section {
-                Defaults.Toggle(key: .showMirror) {
-                    Text("Enable boring mirror")
-                }
-                    .disabled(!checkVideoInput())
-                Picker("Mirror shape", selection: $mirrorShape) {
-                    Text("Circle")
-                        .tag(MirrorShapeEnum.circle)
-                    Text("Square")
-                        .tag(MirrorShapeEnum.rectangle)
-                }
                 Defaults.Toggle(key: .showNotHumanFace) {
                     Text("Show cool face animation while inactive")
                 }
@@ -1794,6 +1519,4 @@ func warningBadge(_ text: String, _ description: String) -> some View {
     }
 }
 
-#Preview {
-    HUD()
-}
+

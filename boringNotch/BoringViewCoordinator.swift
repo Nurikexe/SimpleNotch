@@ -11,12 +11,7 @@ import Defaults
 import SwiftUI
 
 enum SneakContentType {
-    case brightness
-    case volume
-    case backlight
     case music
-    case mic
-    case battery
     case download
 }
 
@@ -27,13 +22,6 @@ struct sneakPeek {
     var icon: String = ""
 }
 
-struct SharedSneakPeek: Codable {
-    var show: Bool
-    var type: String
-    var value: String
-    var icon: String
-}
-
 enum BrowserType {
     case chromium
     case safari
@@ -41,7 +29,7 @@ enum BrowserType {
 
 struct ExpandedItem {
     var show: Bool = false
-    var type: SneakContentType = .battery
+    var type: SneakContentType = .music
     var value: CGFloat = 0
     var browser: BrowserType = .chromium
 }
@@ -54,12 +42,10 @@ class BoringViewCoordinator: ObservableObject {
     @Published var helloAnimationRunning: Bool = false
     private var sneakPeekDispatch: DispatchWorkItem?
     private var expandingViewDispatch: DispatchWorkItem?
-    private var hudEnableTask: Task<Void, Never>?
 
     @AppStorage("firstLaunch") var firstLaunch: Bool = true
     @AppStorage("showWhatsNew") var showWhatsNew: Bool = true
     @AppStorage("musicLiveActivityEnabled") var musicLiveActivityEnabled: Bool = true
-    @AppStorage("currentMicStatus") var currentMicStatus: Bool = true
 
     @AppStorage("alwaysShowTabs") var alwaysShowTabs: Bool = true {
         didSet {
@@ -80,7 +66,6 @@ class BoringViewCoordinator: ObservableObject {
         }
     }
     
-    @Default(.hudReplacement) var hudReplacement: Bool
     
     // Legacy storage for migration
     @AppStorage("preferred_screen_name") private var legacyPreferredScreenName: String?
@@ -98,8 +83,6 @@ class BoringViewCoordinator: ObservableObject {
     @Published var selectedScreenUUID: String = NSScreen.main?.displayUUID ?? ""
 
     @Published var optionKeyPressed: Bool = true
-    private var accessibilityObserver: Any?
-    private var hudReplacementCancellable: AnyCancellable?
 
     private init() {
         // Perform migration from name-based to UUID-based storage
@@ -122,100 +105,17 @@ class BoringViewCoordinator: ObservableObject {
         }
         
         selectedScreenUUID = preferredScreenUUID ?? NSScreen.main?.displayUUID ?? ""
-        // Observe changes to accessibility authorization and react accordingly
-        accessibilityObserver = NotificationCenter.default.addObserver(
-            forName: Notification.Name.accessibilityAuthorizationChanged,
-            object: nil,
-            queue: .main
-        ) { _ in
-            Task { @MainActor in
-                if Defaults[.hudReplacement] {
-                    await MediaKeyInterceptor.shared.start(promptIfNeeded: false)
-                }
-            }
-        }
-
-        // Observe changes to hudReplacement
-        hudReplacementCancellable = Defaults.publisher(.hudReplacement)
-            .sink { [weak self] change in
-                Task { @MainActor in
-                    guard let self = self else { return }
-
-                    self.hudEnableTask?.cancel()
-                    self.hudEnableTask = nil
-
-                    if change.newValue {
-                        self.hudEnableTask = Task { @MainActor in
-                            let granted = await XPCHelperClient.shared.ensureAccessibilityAuthorization(promptIfNeeded: true)
-                            if Task.isCancelled { return }
-
-                            if granted {
-                                await MediaKeyInterceptor.shared.start()
-                            } else {
-                                Defaults[.hudReplacement] = false
-                            }
-                        }
-                    } else {
-                        MediaKeyInterceptor.shared.stop()
-                    }
-                }
-            }
-
         Task { @MainActor in
             helloAnimationRunning = firstLaunch
 
-            if Defaults[.hudReplacement] {
-                let authorized = await XPCHelperClient.shared.isAccessibilityAuthorized()
-                if !authorized {
-                    Defaults[.hudReplacement] = false
-                } else {
-                    await MediaKeyInterceptor.shared.start(promptIfNeeded: false)
-                }
-            }
         }
     }
     
-    @objc func sneakPeekEvent(_ notification: Notification) {
-        let decoder = JSONDecoder()
-        if let decodedData = try? decoder.decode(
-            SharedSneakPeek.self, from: notification.userInfo?.first?.value as! Data)
-        {
-            let contentType =
-                decodedData.type == "brightness"
-                ? SneakContentType.brightness
-                : decodedData.type == "volume"
-                    ? SneakContentType.volume
-                    : decodedData.type == "backlight"
-                        ? SneakContentType.backlight
-                        : decodedData.type == "mic"
-                            ? SneakContentType.mic : SneakContentType.brightness
-
-            let formatter = NumberFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.numberStyle = .decimal
-            let value = CGFloat((formatter.number(from: decodedData.value) ?? 0.0).floatValue)
-            let icon = decodedData.icon
-
-            print("Decoded: \(decodedData), Parsed value: \(value)")
-
-            toggleSneakPeek(status: decodedData.show, type: contentType, value: value, icon: icon)
-
-        } else {
-            print("Failed to decode JSON data")
-        }
-    }
-
     func toggleSneakPeek(
         status: Bool, type: SneakContentType, duration: TimeInterval = 1.5, value: CGFloat = 0,
         icon: String = ""
     ) {
         sneakPeekDuration = duration
-        if type != .music {
-            // close()
-            if !Defaults[.hudReplacement] {
-                return
-            }
-        }
         Task { @MainActor in
             withAnimation(.smooth) {
                 self.sneakPeek.show = status
@@ -225,9 +125,6 @@ class BoringViewCoordinator: ObservableObject {
             }
         }
 
-        if type == .mic {
-            currentMicStatus = value == 1
-        }
     }
 
     private var sneakPeekDuration: TimeInterval = 1.5
