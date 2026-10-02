@@ -39,6 +39,9 @@ struct BoringHeader: View {
                 if vm.notchState == .open {
                         if Defaults[.settingsIconInNotch] {
                             Button(action: {
+                                // Leaving for Settings: close the notch first, so the
+                                // activation change can't strand it open.
+                                withMotion(Motion.notchClose) { vm.close() }
                                 DispatchQueue.main.async {
                                     SettingsWindowController.shared.showWindow()
                                 }

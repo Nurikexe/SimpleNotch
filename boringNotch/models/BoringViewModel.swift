@@ -132,6 +132,72 @@ class BoringViewModel: NSObject, ObservableObject {
         return max(0, menuBarHeight - currentHeight)
     }
 
+    // MARK: Pointer watch
+    // SwiftUI's hover-exit can be lost when the app's activation changes under
+    // the pointer (e.g. opening Settings from the notch). While the notch is
+    // open, also watch plain mouse moves and close once the pointer has been
+    // clearly outside for a moment. Exists only while open: no idle cost.
+
+    private var pointerMonitors: [Any] = []
+    private var pointerOutsideSince: Date?
+    private var pointerCloseTask: Task<Void, Never>?
+
+    private func startPointerWatch() {
+        guard pointerMonitors.isEmpty else { return }
+        let handler: (NSEvent) -> Void = { [weak self] _ in
+            MainActor.assumeIsolated { self?.pointerMoved() }
+        }
+        if let global = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved, handler: handler) {
+            pointerMonitors.append(global)
+        }
+        if let local = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved, handler: { event in
+            handler(event)
+            return event
+        }) {
+            pointerMonitors.append(local)
+        }
+    }
+
+    private func stopPointerWatch() {
+        pointerMonitors.forEach(NSEvent.removeMonitor)
+        pointerMonitors.removeAll()
+        pointerOutsideSince = nil
+        pointerCloseTask?.cancel()
+        pointerCloseTask = nil
+    }
+
+    private func pointerMoved() {
+        guard notchState == .open else { return }
+        if isMouseHovering(margin: 12) {
+            pointerOutsideSince = nil
+            pointerCloseTask?.cancel()
+            return
+        }
+        guard pointerOutsideSince == nil else { return }
+        pointerOutsideSince = .now
+        pointerCloseTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard let self, !Task.isCancelled, self.notchState == .open,
+                  !self.isMouseHovering(margin: 12),
+                  !self.pinnedOpen,
+                  !SharingStateManager.shared.preventNotchClose,
+                  NSEvent.pressedMouseButtons == 0
+            else { return }
+            withMotion(Motion.notchClose) { self.close() }
+        }
+    }
+
+    func isMouseHovering(position: NSPoint = NSEvent.mouseLocation, margin: CGFloat) -> Bool {
+        guard let frame = getScreenFrame(screenUUID) else { return false }
+        let rect = CGRect(
+            x: frame.midX - notchSize.width / 2 - margin,
+            y: frame.maxY - notchSize.height - margin,
+            width: notchSize.width + margin * 2,
+            height: notchSize.height + margin
+        )
+        return rect.contains(position) || position.y >= frame.maxY && abs(position.x - frame.midX) <= rect.width / 2
+    }
+
     func isMouseHovering(position: NSPoint = NSEvent.mouseLocation) -> Bool {
         let screenFrame = getScreenFrame(screenUUID)
         if let frame = screenFrame {
@@ -148,6 +214,7 @@ class BoringViewModel: NSObject, ObservableObject {
     func open() {
         self.notchSize = openNotchSize
         self.notchState = .open
+        startPointerWatch()
         
         // Force music information update when notch is opened
         MusicManager.shared.forceUpdate()
@@ -180,6 +247,7 @@ class BoringViewModel: NSObject, ObservableObject {
             return
         }
         pinnedOpen = false
+        stopPointerWatch()
         endKeyboardSession()
         self.notchSize = getClosedNotchSize(screenUUID: self.screenUUID)
         self.closedNotchSize = self.notchSize

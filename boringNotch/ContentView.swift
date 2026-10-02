@@ -197,6 +197,7 @@ struct ContentView: View {
                     }
                     .contextMenu {
                         Button("Settings") {
+                            withMotion(Motion.notchClose) { vm.close() }
                             DispatchQueue.main.async {
                                 SettingsWindowController.shared.showWindow()
                             }
