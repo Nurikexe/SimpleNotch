@@ -6,6 +6,7 @@
 //  for adding and editing a Birthday that slides over the list.
 //
 
+import AppKit
 import SwiftUI
 
 private enum BirthdayStyle {
@@ -335,21 +336,20 @@ private struct BirthdayFormCard: View {
             }
 
             HStack(spacing: 8) {
-                Picker("Day", selection: $draft.day) {
-                    ForEach(1...Birthday.maxDays(inMonth: draft.month), id: \.self) { day in
-                        Text("\(day)").tag(day)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 58)
-
-                Picker("Month", selection: $draft.month) {
-                    ForEach(1...12, id: \.self) { month in
-                        Text(Calendar.current.monthSymbols[month - 1]).tag(month)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 110)
+                CycleStepper(
+                    value: $draft.day,
+                    range: 1...Birthday.maxDays(inMonth: draft.month),
+                    label: { "\($0)" },
+                    width: 26,
+                    help: "Day"
+                )
+                CycleStepper(
+                    value: $draft.month,
+                    range: 1...12,
+                    label: { Calendar.current.monthSymbols[$0 - 1] },
+                    width: 72,
+                    help: "Month"
+                )
                 .onChange(of: draft.month) { _, month in
                     draft.day = min(draft.day, Birthday.maxDays(inMonth: month))
                 }
@@ -457,5 +457,73 @@ private struct PressScaleStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.9 : 1)
             .animation(Motion.respecting(Motion.snappy), value: configuration.isPressed)
+    }
+}
+
+/// "‹ 2 ›": a compact in-notch stepper that wraps around. Click the chevrons
+/// or scroll over it; long menus don't fit the notch.
+private struct CycleStepper: View {
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let label: (Int) -> String
+    let width: CGFloat
+    let help: LocalizedStringKey
+
+    @State private var scrollMonitor: Any?
+    @State private var accumulated: CGFloat = 0
+
+    var body: some View {
+        HStack(spacing: 2) {
+            chevron("chevron.left") { step(-1) }
+            Text(label(value))
+                .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .contentTransition(.numericText())
+                .frame(minWidth: width)
+            chevron("chevron.right") { step(1) }
+        }
+        .padding(.horizontal, 3)
+        .frame(height: 24)
+        .background(Capsule().fill(Color.white.opacity(0.08)))
+        .help(help)
+        .onHover { $0 ? installScroll() : removeScroll() }
+        .onDisappear(perform: removeScroll)
+    }
+
+    private func chevron(_ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.gray)
+                .frame(width: 16, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleStyle())
+    }
+
+    private func step(_ delta: Int) {
+        let count = range.count
+        let next = ((value - range.lowerBound + delta) % count + count) % count + range.lowerBound
+        withMotion(Motion.snappy) { value = next }
+    }
+
+    private func installScroll() {
+        guard scrollMonitor == nil else { return }
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            accumulated += event.hasPreciseScrollingDeltas ? event.scrollingDeltaY : event.scrollingDeltaY * 10
+            while abs(accumulated) >= 10 {
+                // Scrolling up moves forward, like turning a dial.
+                step(accumulated > 0 ? 1 : -1)
+                accumulated -= accumulated > 0 ? 10 : -10
+            }
+            return nil
+        }
+    }
+
+    private func removeScroll() {
+        if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
+        scrollMonitor = nil
+        accumulated = 0
     }
 }
