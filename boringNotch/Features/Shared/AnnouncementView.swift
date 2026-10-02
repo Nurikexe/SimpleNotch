@@ -16,7 +16,10 @@ struct AnnouncementView: View {
     var body: some View {
         HStack(spacing: 8) {
             Group {
-                if let emoji = announcement.emoji {
+                if announcement.kind == .focus {
+                    TomatoView(mood: .happy, pulse: TomatoPulse(kind: .celebrate), size: 26)
+                        .frame(width: 22, height: 22)
+                } else if let emoji = announcement.emoji {
                     Text(emoji)
                         .font(.system(size: 15))
                 } else {
