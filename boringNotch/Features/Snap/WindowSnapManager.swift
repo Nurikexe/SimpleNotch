@@ -60,6 +60,12 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
         guard !isRunning else { return }
         isRunning = true
 
+        // Snapping can't see other apps' windows without Accessibility; ask
+        // up front rather than silently doing nothing on the first drag.
+        if !AccessibilityPermission.shared.isTrusted {
+            AccessibilityPermission.shared.requestAccessibilityAuthorization()
+        }
+
         let handlers: [(NSEvent.EventTypeMask, @MainActor (WindowSnapManager) -> Void)] = [
             (.leftMouseDown, { $0.mouseDown() }),
             (.leftMouseDragged, { $0.mouseDragged() }),
@@ -229,9 +235,6 @@ final class WindowSnapManager: ObservableObject, NotchFeature {
         guard hit != hover.layout else { return }
         withMotion(Motion.interactive) {
             hover.layout = hit
-        }
-        if hit != nil {
-            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
         }
     }
 
